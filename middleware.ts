@@ -7,6 +7,7 @@ export async function middleware(request: NextRequest) {
   const isPublic =
     pathname.startsWith('/login') ||
     pathname.startsWith('/auth') ||
+    pathname.startsWith('/api/auth') ||
     pathname.startsWith('/_next') ||
     pathname.startsWith('/favicon') ||
     pathname.startsWith('/icon') ||
@@ -35,7 +36,6 @@ export async function middleware(request: NextRequest) {
 
   const isProtected =
     pathname.startsWith('/dashboard') ||
-    pathname.startsWith('/api/') ||
     pathname === '/'
 
   if (isProtected && !user) {

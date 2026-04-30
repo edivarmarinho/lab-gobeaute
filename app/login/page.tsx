@@ -13,10 +13,14 @@ export default function LoginPage() {
   async function signInWithGoogle() {
     setLoading(true)
     setError('')
-    const { error } = await supabase.auth.signInWithOAuth({
+    const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/api/auth/callback` },
+      options: {
+        redirectTo: `${window.location.origin}/api/auth/callback`,
+        queryParams: { prompt: 'select_account' },
+      },
     })
+    console.log('OAuth result:', { data, error })
     if (error) { setError(error.message); setLoading(false) }
   }
 

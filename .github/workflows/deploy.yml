@@ -1,0 +1,29 @@
+name: Deploy — Vercel (Lab Gobeaute P&D)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-lab-gobeaute
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Disparar deploy no Vercel via webhook
+        env:
+          VERCEL_DEPLOY_HOOK_URL: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+        run: |
+          echo "Disparando deploy..."
+          curl -s -X POST "$VERCEL_DEPLOY_HOOK_URL" \
+            -H "Content-Type: application/json" \
+            -d "{\"reason\":\"push para main por ${{ github.actor }}\"}" \
+            | jq .
+          echo "Deploy disparado com sucesso."

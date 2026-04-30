@@ -1,0 +1,46 @@
+name: Drive Sync — Lab Gobeaute P&D
+
+on:
+  schedule:
+    # Roda a cada 6 horas (06:00, 12:00, 18:00, 00:00 BRT)
+    - cron: '0 9,15,21,3 * * *'
+  workflow_dispatch:      # permite rodar manualmente pelo GitHub
+
+concurrency:
+  group: drive-sync-lab
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: etl/requirements.txt
+
+      - name: Instalar dependências
+        run: pip install -r etl/requirements.txt
+
+      - name: Executar Drive Sync
+        env:
+          GOOGLE_SERVICE_ACCOUNT_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}
+          SUPABASE_URL:               ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY:  ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          DRIVE_FOLDER_ID:            ${{ secrets.DRIVE_FOLDER_ID }}
+        run: python etl/drive_sync.py
+
+      - name: Disparar deploy Vercel (se houve novos arquivos)
+        if: success()
+        env:
+          VERCEL_DEPLOY_HOOK_URL: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+        run: |
+          curl -s -X POST "$VERCEL_DEPLOY_HOOK_URL" \
+            -H "Content-Type: application/json" \
+            -d '{"reason":"drive-sync: novos documentos importados"}' \
+            | jq .

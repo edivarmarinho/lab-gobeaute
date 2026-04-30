@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
-import { FolderKanban } from 'lucide-react'
+import { getProfile } from '@/lib/supabase/get-profile'
+import { FolderKanban, ShieldAlert } from 'lucide-react'
 
 const etapaColor: Record<string, string> = {
   'Briefing/Conceito':       'bg-gray-100 text-gray-600',
@@ -19,6 +20,10 @@ const statusColor: Record<string, string> = {
 
 export default async function ProjetosPage() {
   const supabase = createClient()
+  const profile = await getProfile()
+  const canEdit = profile?.role === 'admin' || profile?.role === 'pd'
+
+  // RLS filtra automaticamente projetos pelas marcas do usuário
   const { data: projetos } = await supabase
     .from('pd_projetos')
     .select('*')
@@ -30,11 +35,17 @@ export default async function ProjetosPage() {
         <FolderKanban className="w-6 h-6 text-purple-500" />
         <h1 className="text-xl font-bold text-gray-900">Projetos P&D</h1>
         <span className="ml-auto text-sm text-gray-400">{projetos?.length ?? 0} projetos</span>
+        {profile && profile.role !== 'admin' && profile.marcas.length > 0 && (
+          <span className="flex items-center gap-1 text-xs text-brand-600 bg-brand-50 px-2 py-1 rounded-full">
+            <ShieldAlert className="w-3 h-3" />
+            {profile.marcas.join(', ')}
+          </span>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {projetos?.map((p: any) => (
-          <div key={p.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition">
+          <div key={p.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition group">
             <div className="flex items-start justify-between gap-2 mb-3">
               <div>
                 <p className="font-mono text-xs text-gray-400 mb-1">{p.codigo}</p>
@@ -63,9 +74,16 @@ export default async function ProjetosPage() {
               <p className="text-xs text-gray-400 line-clamp-2">{p.briefing}</p>
             )}
 
-            {p.responsavel && (
-              <p className="text-xs text-gray-400 mt-2">👤 {p.responsavel}</p>
-            )}
+            <div className="flex items-center justify-between mt-2">
+              {p.responsavel && (
+                <p className="text-xs text-gray-400">👤 {p.responsavel}</p>
+              )}
+              {canEdit && (
+                <span className="text-xs text-gray-400 opacity-0 group-hover:opacity-100 hover:text-brand-600 cursor-pointer transition">
+                  Editar →
+                </span>
+              )}
+            </div>
           </div>
         ))}
       </div>

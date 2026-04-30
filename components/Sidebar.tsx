@@ -2,22 +2,29 @@
 
 import { createClient } from '@/lib/supabase/client'
 import { useRouter, usePathname } from 'next/navigation'
-import { FlaskConical, Package, Users, FolderKanban, FileText, LogOut } from 'lucide-react'
+import {
+  FlaskConical, Package, Users, FolderKanban,
+  FileText, LogOut, ShieldCheck,
+} from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
+import type { Profile } from '@/lib/types'
+import { ROLE_LABEL, ROLE_BADGE_COLOR } from '@/lib/types'
 import { clsx } from 'clsx'
 
-const nav = [
-  { label: 'Dashboard',     href: '/dashboard',              icon: FlaskConical },
-  { label: 'Projetos P&D',  href: '/dashboard/projetos',     icon: FolderKanban },
-  { label: 'Matérias-Primas', href: '/dashboard/mps',        icon: Package },
-  { label: 'Fornecedores',  href: '/dashboard/fornecedores', icon: Users },
-  { label: 'Documentos',    href: '/dashboard/documentos',   icon: FileText },
-]
-
-export default function Sidebar({ user }: { user: User }) {
+export default function Sidebar({ user, profile }: { user: User; profile: Profile | null }) {
   const supabase = createClient()
   const router = useRouter()
   const pathname = usePathname()
+  const isAdmin = profile?.role === 'admin'
+
+  const nav = [
+    { label: 'Dashboard',        href: '/dashboard',                    icon: FlaskConical },
+    { label: 'Projetos P&D',     href: '/dashboard/projetos',           icon: FolderKanban },
+    { label: 'Matérias-Primas',  href: '/dashboard/mps',                icon: Package },
+    { label: 'Fornecedores',     href: '/dashboard/fornecedores',       icon: Users },
+    { label: 'Documentos',       href: '/dashboard/documentos',         icon: FileText },
+    ...(isAdmin ? [{ label: 'Usuários', href: '/dashboard/admin/usuarios', icon: ShieldCheck }] : []),
+  ]
 
   async function signOut() {
     await supabase.auth.signOut()
@@ -61,17 +68,40 @@ export default function Sidebar({ user }: { user: User }) {
         })}
       </nav>
 
-      {/* User */}
+      {/* User + role */}
       <div className="px-4 py-4 border-t border-gray-100">
-        <div className="flex items-center gap-2 mb-3">
+        <div className="flex items-center gap-2 mb-2">
           {user.user_metadata?.avatar_url && (
             <img src={user.user_metadata.avatar_url} className="w-7 h-7 rounded-full" alt="" />
           )}
           <div className="min-w-0">
-            <p className="text-xs font-medium text-gray-900 truncate">{user.user_metadata?.full_name ?? user.email}</p>
+            <p className="text-xs font-medium text-gray-900 truncate">
+              {profile?.nome ?? user.user_metadata?.full_name ?? user.email}
+            </p>
             <p className="text-xs text-gray-400 truncate">{user.email}</p>
           </div>
         </div>
+
+        {/* Badge de role + marcas */}
+        {profile && (
+          <div className="mb-3 space-y-1">
+            <span className={clsx(
+              'text-xs px-2 py-0.5 rounded-full font-medium',
+              ROLE_BADGE_COLOR[profile.role]
+            )}>
+              {ROLE_LABEL[profile.role]}
+            </span>
+            {profile.marcas.length > 0 && profile.role !== 'admin' && (
+              <p className="text-xs text-gray-400 truncate pl-0.5">
+                {profile.marcas.join(' · ')}
+              </p>
+            )}
+            {profile.role === 'admin' && (
+              <p className="text-xs text-gray-400 pl-0.5">Acesso total</p>
+            )}
+          </div>
+        )}
+
         <button
           onClick={signOut}
           className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition"

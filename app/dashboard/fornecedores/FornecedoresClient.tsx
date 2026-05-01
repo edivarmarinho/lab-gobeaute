@@ -522,11 +522,11 @@ function FornecedorCard({
     )}>
       {/* Row principal */}
       <div
-        className="flex items-center gap-4 px-5 py-4 cursor-pointer"
+        className="flex items-center gap-3 px-4 md:px-5 py-4 cursor-pointer"
         onClick={onToggle}
       >
         {/* Avatar */}
-        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center shrink-0">
+        <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center shrink-0">
           <span className="text-white font-bold text-sm">{f.nome.charAt(0)}</span>
         </div>
 
@@ -535,7 +535,7 @@ function FornecedorCard({
           <div className="flex items-center gap-2">
             <p className="font-semibold text-gray-900 truncate">{f.nome}</p>
             {hasCritical && <AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0" />}
-            {f.avaliacao_geral && <StarRating value={f.avaliacao_geral} />}
+            <span className="hidden sm:flex"><StarRating value={f.avaliacao_geral} /></span>
           </div>
           <div className="flex items-center gap-2 mt-0.5">
             {f.especialidade
@@ -543,7 +543,7 @@ function FornecedorCard({
               : <p className="text-xs text-gray-400 truncate">{f.contato ?? '—'}</p>
             }
             {f.categoria_fornecedor && (
-              <span className="shrink-0 text-xs text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded">
+              <span className="hidden md:inline shrink-0 text-xs text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded">
                 {CATEGORIA_LABEL[f.categoria_fornecedor]}
               </span>
             )}
@@ -553,11 +553,11 @@ function FornecedorCard({
         {/* Status */}
         <span className={clsx('shrink-0 text-xs px-2.5 py-1 rounded-full font-medium', cfg.color)}>
           <span className={clsx('inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle', cfg.dot)} />
-          {f.status}
+          <span className="hidden sm:inline">{f.status}</span>
         </span>
 
-        {/* ISO badges */}
-        <div className="flex gap-1.5 shrink-0">
+        {/* ISO badges — ocultos em mobile */}
+        <div className="hidden md:flex gap-1.5 shrink-0">
           <span className={clsx('text-xs px-2 py-0.5 rounded font-medium',
             f.iso22716 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-400 line-through'
           )}>22716</span>
@@ -566,8 +566,8 @@ function FornecedorCard({
           )}>9001</span>
         </div>
 
-        {/* MPs + pendências */}
-        <div className="flex items-center gap-3 shrink-0 text-xs">
+        {/* MPs + pendências — ocultos em mobile pequeno */}
+        <div className="hidden sm:flex items-center gap-3 shrink-0 text-xs">
           <span className="flex items-center gap-1 text-gray-500">
             <Package className="w-3.5 h-3.5" />
             {f.mps_ativas} MPs
@@ -579,28 +579,28 @@ function FornecedorCard({
           )}
         </div>
 
-        {/* WhatsApp rápido */}
+        {/* WhatsApp rápido — oculto em mobile pequeno */}
         {f.whatsapp && (
           <a
             href={waLink(f.whatsapp)}
             target="_blank"
             rel="noopener noreferrer"
             onClick={e => e.stopPropagation()}
-            className="shrink-0 flex items-center gap-1 text-xs text-green-600 bg-green-50 hover:bg-green-100 px-2.5 py-1.5 rounded-lg transition font-medium border border-green-100"
+            className="hidden sm:flex shrink-0 items-center gap-1 text-xs text-green-600 bg-green-50 hover:bg-green-100 px-2.5 py-1.5 rounded-lg transition font-medium border border-green-100"
           >
             <MessageCircle className="w-3.5 h-3.5" />
-            WhatsApp
+            <span className="hidden md:inline">WhatsApp</span>
           </a>
         )}
 
-        {/* Site */}
+        {/* Site — oculto em mobile */}
         {f.site && (
           <a
             href={f.site}
             target="_blank"
             rel="noopener noreferrer"
             onClick={e => e.stopPropagation()}
-            className="shrink-0 p-1.5 text-gray-400 hover:text-brand-500 hover:bg-brand-50 rounded-lg transition"
+            className="hidden md:flex shrink-0 p-1.5 text-gray-400 hover:text-brand-500 hover:bg-brand-50 rounded-lg transition"
           >
             <Globe className="w-4 h-4" />
           </a>
@@ -1251,7 +1251,7 @@ export default function FornecedoresClient({ fornecedores, crm, contatos, canEdi
   const editingFornecedor = editing ? localFornecedores.find(f => f.id === editing) : null
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-4 md:p-6 max-w-7xl mx-auto">
       {/* Modal de novo fornecedor */}
       {novoModal && (
         <NovoFornecedorModal
@@ -1337,10 +1337,10 @@ export default function FornecedoresClient({ fornecedores, crm, contatos, canEdi
         {canEdit && (
           <button
             onClick={() => setNovoModal(true)}
-            className="ml-auto flex items-center gap-1.5 px-3 py-2 bg-emerald-500 text-white text-sm font-medium rounded-lg hover:bg-emerald-600 transition"
+            className="ml-auto flex items-center gap-1.5 px-2.5 py-2 md:px-3 bg-emerald-500 text-white text-sm font-medium rounded-lg hover:bg-emerald-600 transition"
           >
             <Plus className="w-4 h-4" />
-            Novo Fornecedor
+            <span className="hidden sm:inline">Novo Fornecedor</span>
           </button>
         )}
       </div>
@@ -1390,7 +1390,7 @@ export default function FornecedoresClient({ fornecedores, crm, contatos, canEdi
       {mainTab === 'painel' && (
         <>
           {/* Filtros */}
-          <div className="flex flex-wrap gap-3 mb-5">
+          <div className="flex flex-col sm:flex-row flex-wrap gap-3 mb-5">
             <div className="relative flex-1 min-w-48">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input

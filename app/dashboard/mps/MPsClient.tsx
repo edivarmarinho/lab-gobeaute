@@ -499,7 +499,7 @@ export default function MPsClient({ mps: initialMps, canEdit }: { mps: MP[]; can
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-4 md:p-6 max-w-7xl mx-auto">
       {gapsOpen && (
         <GapsModal
           mps={mps}
@@ -509,31 +509,34 @@ export default function MPsClient({ mps: initialMps, canEdit }: { mps: MP[]; can
       )}
 
       {/* Header */}
-      <div className="flex items-center gap-3 mb-5">
-        <Package className="w-6 h-6 text-blue-500" />
-        <h1 className="text-xl font-bold text-gray-900">Matérias-Primas</h1>
+      <div className="flex items-center gap-2 mb-5 flex-wrap">
+        <Package className="w-5 h-5 md:w-6 md:h-6 text-blue-500 shrink-0" />
+        <h1 className="text-lg md:text-xl font-bold text-gray-900">Matérias-Primas</h1>
         <span className="text-sm text-gray-400">{filtered.length} de {mps.length}</span>
-        <button
-          onClick={() => setGapsOpen(true)}
-          className="ml-auto flex items-center gap-1.5 px-3 py-2 text-purple-600 text-sm font-medium rounded-lg hover:bg-purple-50 border border-purple-200 transition"
-        >
-          <Telescope className="w-4 h-4" />
-          Ver Gaps
-        </button>
-        {canEdit && (
+        <div className="ml-auto flex items-center gap-2">
           <button
-            onClick={openNew}
-            className="flex items-center gap-1.5 px-3 py-2 bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-600 transition"
+            onClick={() => setGapsOpen(true)}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-purple-600 text-xs md:text-sm font-medium rounded-lg hover:bg-purple-50 border border-purple-200 transition"
           >
-            <Plus className="w-4 h-4" />
-            Nova MP
+            <Telescope className="w-3.5 h-3.5 md:w-4 md:h-4" />
+            <span className="hidden sm:inline">Ver Gaps</span>
           </button>
-        )}
+          {canEdit && (
+            <button
+              onClick={openNew}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-500 text-white text-xs md:text-sm font-medium rounded-lg hover:bg-blue-600 transition"
+            >
+              <Plus className="w-3.5 h-3.5 md:w-4 md:h-4" />
+              <span className="hidden sm:inline">Nova MP</span>
+              <span className="sm:hidden">Nova</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Filtros */}
-      <div className="flex flex-wrap gap-2 mb-4">
-        <div className="relative flex-1 min-w-48">
+      <div className="flex flex-col sm:flex-row flex-wrap gap-2 mb-4">
+        <div className="relative flex-1 min-w-0">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
           <input
             className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200"
@@ -565,7 +568,8 @@ export default function MPsClient({ mps: initialMps, canEdit }: { mps: MP[]; can
 
       {/* Tabela */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full text-sm min-w-[640px]">
           <thead className="bg-gray-50 border-b border-gray-100">
             <tr>
               <th className="text-left px-4 py-3 font-medium text-gray-500 w-8" />
@@ -574,8 +578,8 @@ export default function MPsClient({ mps: initialMps, canEdit }: { mps: MP[]; can
               <th className="text-left px-4 py-3 font-medium text-gray-500">Categoria</th>
               <th className="text-left px-4 py-3 font-medium text-gray-500">ANVISA</th>
               <th className="text-left px-4 py-3 font-medium text-gray-500">Homologação</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-500">Fornecedor</th>
-              <th className="text-right px-4 py-3 font-medium text-gray-500">USD/kg</th>
+              <th className="text-left px-4 py-3 font-medium text-gray-500 hidden lg:table-cell">Fornecedor</th>
+              <th className="text-right px-4 py-3 font-medium text-gray-500 hidden lg:table-cell">USD/kg</th>
               {canEdit && <th className="px-4 py-3 w-16" />}
             </tr>
           </thead>
@@ -606,8 +610,8 @@ export default function MPsClient({ mps: initialMps, canEdit }: { mps: MP[]; can
                       {mp.homolog}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-gray-500 text-xs max-w-[120px] truncate">{mp.forn_candidato ?? '—'}</td>
-                  <td className="px-4 py-3 text-right text-gray-700 font-mono text-xs">
+                  <td className="px-4 py-3 text-gray-500 text-xs max-w-[120px] truncate hidden lg:table-cell">{mp.forn_candidato ?? '—'}</td>
+                  <td className="px-4 py-3 text-right text-gray-700 font-mono text-xs hidden lg:table-cell">
                     {mp.preco_ref_usd ? `$${Number(mp.preco_ref_usd).toFixed(2)}` : '—'}
                   </td>
                   {canEdit && (
@@ -674,6 +678,7 @@ export default function MPsClient({ mps: initialMps, canEdit }: { mps: MP[]; can
             ))}
           </tbody>
         </table>
+        </div>
         {filtered.length === 0 && (
           <div className="py-12 text-center">
             <Package className="w-8 h-8 text-gray-300 mx-auto mb-2" />

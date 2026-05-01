@@ -39,7 +39,7 @@ export default async function ProjetosPage() {
   })
 
   return (
-    <div className="p-6 max-w-full">
+    <div className="p-4 md:p-6 max-w-full">
       <KanbanBoard projetos={projetos ?? []} canEdit={canEdit} />
       <div className="my-10 border-t border-gray-200" />
       <HomologBoard items={homologItems} canEdit={canEdit} />

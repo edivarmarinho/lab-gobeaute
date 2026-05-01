@@ -16,7 +16,7 @@ export default async function UsuariosPage() {
     .order('created_at', { ascending: true })
 
   return (
-    <div className="p-8 max-w-5xl mx-auto">
+    <div className="p-4 md:p-6 lg:p-8 max-w-5xl mx-auto">
       <div className="flex items-center gap-3 mb-2">
         <ShieldCheck className="w-6 h-6 text-red-500" />
         <h1 className="text-xl font-bold text-gray-900">Gerenciar Usuários</h1>

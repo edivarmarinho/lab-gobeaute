@@ -17,7 +17,7 @@ export default async function DocumentosPage() {
   const docs = documentos ?? []
 
   return (
-    <div className="p-8 max-w-7xl mx-auto">
+    <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
       <div className="flex items-center gap-3 mb-4">
         <FileText className="w-6 h-6 text-orange-500" />
         <h1 className="text-xl font-bold text-gray-900">Documentos</h1>

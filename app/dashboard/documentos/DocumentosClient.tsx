@@ -112,13 +112,14 @@ export default function DocumentosClient({ documentos }: { documentos: Doc[] }) 
         </div>
       ) : (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[540px]">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
                 <th className="text-left px-4 py-3 font-medium text-gray-500">Nome</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">Tipo</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">MP</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">Fornecedor</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-500 hidden sm:table-cell">Tipo</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-500 hidden md:table-cell">MP</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-500 hidden lg:table-cell">Fornecedor</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-500">Status</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-500">Validade</th>
               </tr>
@@ -146,9 +147,9 @@ export default function DocumentosClient({ documentos }: { documentos: Doc[] }) 
                         }
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-gray-500 text-xs">{d.tipo ?? '—'}</td>
-                    <td className="px-4 py-3 text-gray-500 text-xs font-mono">{d.mp_codigo ?? '—'}</td>
-                    <td className="px-4 py-3 text-gray-500 text-xs">{d.fornecedor_nome ?? '—'}</td>
+                    <td className="px-4 py-3 text-gray-500 text-xs hidden sm:table-cell">{d.tipo ?? '—'}</td>
+                    <td className="px-4 py-3 text-gray-500 text-xs font-mono hidden md:table-cell">{d.mp_codigo ?? '—'}</td>
+                    <td className="px-4 py-3 text-gray-500 text-xs hidden lg:table-cell">{d.fornecedor_nome ?? '—'}</td>
                     <td className="px-4 py-3">
                       <span className={clsx(
                         'text-xs px-2 py-1 rounded-full font-medium',
@@ -172,6 +173,7 @@ export default function DocumentosClient({ documentos }: { documentos: Doc[] }) 
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </>

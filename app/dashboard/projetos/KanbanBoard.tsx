@@ -183,15 +183,18 @@ export default function KanbanBoard({ projetos: initialProjetos, canEdit }: { pr
         <h1 className="text-xl font-bold text-gray-900">Projetos P&D</h1>
         <span className="text-sm text-gray-400 ml-1">{projetos.length} projetos</span>
         {canEdit && (
-          <button onClick={() => setNovoModal(true)} className="ml-auto flex items-center gap-1.5 text-xs px-3 py-1.5 bg-brand-500 text-white rounded-lg hover:bg-brand-600 transition font-medium">
+          <button onClick={() => setNovoModal(true)} className="ml-auto flex items-center gap-1.5 text-xs px-2.5 py-1.5 md:px-3 bg-brand-500 text-white rounded-lg hover:bg-brand-600 transition font-medium">
             <Plus className="w-3.5 h-3.5" />
-            Novo Projeto
+            <span className="hidden sm:inline">Novo Projeto</span>
           </button>
         )}
       </div>
 
+      {/* Hint de scroll em mobile */}
+      <p className="text-xs text-gray-400 mb-2 md:hidden">← Deslize para ver todas as etapas</p>
+
       {/* Kanban grid */}
-      <div className="flex gap-3 overflow-x-auto pb-4" style={{ minHeight: 480 }}>
+      <div className="flex gap-3 overflow-x-auto pb-4 -mx-4 px-4 md:mx-0 md:px-0" style={{ minHeight: 480 }}>
         {ETAPAS.map(etapa => {
           const cards = byEtapa[etapa] ?? []
           const cfg = ETAPA_CONFIG[etapa]

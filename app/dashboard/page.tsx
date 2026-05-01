@@ -135,20 +135,20 @@ export default async function DashboardPage() {
   const saudacao = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite'
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-5 md:space-y-6">
 
       {/* ── Hero Header ── */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <FlaskConical className="w-6 h-6 text-brand-500" />
-            <h1 className="text-2xl font-bold text-gray-900">Lab Gobeaute P&D</h1>
+            <FlaskConical className="w-5 h-5 md:w-6 md:h-6 text-brand-500" />
+            <h1 className="text-xl md:text-2xl font-bold text-gray-900">Lab Gobeaute P&D</h1>
           </div>
           <p className="text-gray-500 text-sm">
             {saudacao}, {nomeUsuario}. Aqui está o resumo do laboratório.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {docsVencendo > 0 && (
             <a href="/dashboard/documentos" className="flex items-center gap-1.5 text-xs text-red-600 bg-red-50 border border-red-100 px-3 py-1.5 rounded-lg font-medium hover:bg-red-100 transition">
               <AlertTriangle className="w-3.5 h-3.5" />

@@ -60,7 +60,7 @@ export default function HomologBoard({ items, canEdit }: { items: HomologItem[];
                 )}
               >
                 {/* Header */}
-                <div className="flex items-start justify-between gap-4 mb-4">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-4">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                       <span className="font-mono text-xs text-gray-400">{h.mp_codigo}</span>
@@ -78,7 +78,7 @@ export default function HomologBoard({ items, canEdit }: { items: HomologItem[];
                     <h3 className="font-semibold text-gray-900">{h.mp_nome}</h3>
                     <p className="text-xs text-gray-500 mt-0.5">{h.fornecedor_nome} · Resp: {h.responsavel}</p>
                   </div>
-                  <div className="text-right shrink-0">
+                  <div className="sm:text-right shrink-0">
                     <p className="text-xs text-gray-400">Início: {formatDate(h.data_inicio)}</p>
                     <p className={clsx('text-xs font-medium mt-0.5',
                       vencido ? 'text-red-600' : vencendo ? 'text-yellow-600' : 'text-gray-500'
@@ -89,7 +89,8 @@ export default function HomologBoard({ items, canEdit }: { items: HomologItem[];
                 </div>
 
                 {/* Progress steps */}
-                <div className="flex items-center gap-0">
+                <div className="overflow-x-auto -mx-1 px-1">
+                <div className="flex items-center gap-0 min-w-[360px]">
                   {STEPS.map((step, idx) => {
                     const done    = idx < h.etapa
                     const current = idx === h.etapa
@@ -125,6 +126,7 @@ export default function HomologBoard({ items, canEdit }: { items: HomologItem[];
                       </div>
                     )
                   })}
+                </div>
                 </div>
               </div>
             )

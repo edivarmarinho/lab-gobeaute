@@ -390,16 +390,17 @@ export default function FormulasClient({
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-4 md:p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-3 mb-5">
         <Beaker className="w-6 h-6 text-teal-500" />
-        <h1 className="text-xl font-bold text-gray-900">Biblioteca de Fórmulas</h1>
+        <h1 className="text-xl font-bold text-gray-900">Fórmulas</h1>
         <span className="text-sm text-gray-400">{filtered.length} de {formulas.length}</span>
         {canEdit && (
           <button onClick={() => { setModalFormula(null); setModalOpen(true) }}
-            className="ml-auto flex items-center gap-1.5 px-3 py-2 bg-teal-500 text-white text-sm font-medium rounded-lg hover:bg-teal-600 transition">
-            <Plus className="w-4 h-4" /> Nova Fórmula
+            className="ml-auto flex items-center gap-1.5 px-2.5 py-2 md:px-3 bg-teal-500 text-white text-sm font-medium rounded-lg hover:bg-teal-600 transition">
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">Nova Fórmula</span>
           </button>
         )}
       </div>
@@ -420,7 +421,7 @@ export default function FormulasClient({
       </div>
 
       {/* Filtros */}
-      <div className="flex flex-wrap gap-2 mb-4">
+      <div className="flex flex-col sm:flex-row flex-wrap gap-2 mb-4">
         <div className="relative flex-1 min-w-48">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
           <input className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-200"
@@ -447,17 +448,18 @@ export default function FormulasClient({
 
       {/* Tabela */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full text-sm min-w-[640px]">
           <thead className="bg-gray-50 border-b border-gray-100">
             <tr>
               <th className="text-left px-4 py-3 font-medium text-gray-500 w-8" />
               <th className="text-left px-4 py-3 font-medium text-gray-500">Código</th>
               <th className="text-left px-4 py-3 font-medium text-gray-500">Produto</th>
               <th className="text-left px-4 py-3 font-medium text-gray-500">Marca</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-500">Tipo</th>
+              <th className="text-left px-4 py-3 font-medium text-gray-500 hidden md:table-cell">Tipo</th>
               <th className="text-left px-4 py-3 font-medium text-gray-500">Status</th>
-              <th className="text-center px-4 py-3 font-medium text-gray-500">MPs</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-500">Responsável</th>
+              <th className="text-center px-4 py-3 font-medium text-gray-500 hidden sm:table-cell">MPs</th>
+              <th className="text-left px-4 py-3 font-medium text-gray-500 hidden lg:table-cell">Responsável</th>
               {canEdit && <th className="px-4 py-3 w-16" />}
             </tr>
           </thead>
@@ -483,7 +485,7 @@ export default function FormulasClient({
                       {formula.marca}
                     </span>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 hidden md:table-cell">
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${formula.tipo === 'Suplemento' ? 'bg-purple-100 text-purple-700' : 'bg-pink-100 text-pink-700'}`}>
                       {formula.tipo}
                     </span>
@@ -493,13 +495,13 @@ export default function FormulasClient({
                       {formula.status}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-4 py-3 text-center hidden sm:table-cell">
                     <span className="flex items-center justify-center gap-1 text-xs text-gray-500">
                       <Package className="w-3.5 h-3.5" />
                       {formula.formula_ingredientes?.length ?? formula.n_mps}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-xs text-gray-500">{formula.responsavel ?? '—'}</td>
+                  <td className="px-4 py-3 text-xs text-gray-500 hidden lg:table-cell">{formula.responsavel ?? '—'}</td>
                   {canEdit && (
                     <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
                       <button onClick={() => { setModalFormula(formula); setModalOpen(true) }}
@@ -599,6 +601,7 @@ export default function FormulasClient({
             ))}
           </tbody>
         </table>
+        </div>
         {filtered.length === 0 && (
           <div className="py-12 text-center">
             <Beaker className="w-8 h-8 text-gray-300 mx-auto mb-2" />

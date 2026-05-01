@@ -1,52 +1,836 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { Users, Search, CheckCircle2, XCircle, AlertTriangle, ChevronDown, ChevronUp, Package, FileWarning, Shield, ShieldOff } from 'lucide-react'
+import { useState, useMemo, useTransition } from 'react'
+import {
+  Users, Search, CheckCircle2, XCircle, AlertTriangle, ChevronDown, ChevronUp,
+  Package, FileWarning, Shield, ShieldOff, Phone, Globe, MessageCircle,
+  Star, ExternalLink, Building2, Truck, Award, Edit3, Save, X,
+  Mail, Linkedin, Clock, BadgeCheck, Info, BarChart3, ChevronRight,
+  Plus, Loader2
+} from 'lucide-react'
 import { clsx } from 'clsx'
 
+// ─── Tipos ────────────────────────────────────────────────────────────────────
+
+type Contato = {
+  id: string
+  fornecedor_id: string
+  nome: string
+  cargo: string | null
+  email: string | null
+  telefone: string | null
+  whatsapp: string | null
+  linkedin: string | null
+  tipo: 'comercial' | 'tecnico' | 'financeiro' | 'diretoria' | 'outro'
+  principal: boolean
+}
+
+type Fornecedor = {
+  id: string
+  nome: string
+  uf: string
+  cnpj: string | null
+  contato: string | null
+  status: string
+  iso22716: boolean
+  iso9001: boolean
+  pendencias: number
+  mps_ativas: number
+  whatsapp: string | null
+  site: string | null
+  descricao: string | null
+  especialidade: string | null
+  linkedin: string | null
+  instagram: string | null
+  porte: string | null
+  categoria_fornecedor: string | null
+  avaliacao_geral: number | null
+  prazo_entrega_dias: number | null
+  condicao_pagamento: string | null
+  observacoes: string | null
+  [k: string]: any
+}
+
+type CRMEvent = {
+  id: string
+  fornecedor_id: string
+  tipo: string
+  titulo: string
+  detalhe: string | null
+  data_evento: string | null
+}
+
+// ─── Configs ──────────────────────────────────────────────────────────────────
+
 const STATUS_CONFIG: Record<string, { color: string; dot: string }> = {
-  'Homologado':   { color: 'bg-green-100 text-green-700',  dot: 'bg-green-500' },
+  'Homologado':   { color: 'bg-green-100 text-green-700',   dot: 'bg-green-500' },
   'Em Avaliação': { color: 'bg-yellow-100 text-yellow-700', dot: 'bg-yellow-500' },
   'Reprovado':    { color: 'bg-red-100 text-red-700',       dot: 'bg-red-500' },
   'Inativo':      { color: 'bg-gray-100 text-gray-500',     dot: 'bg-gray-400' },
 }
 
 const CRM_CONFIG: Record<string, { color: string; bg: string; icon: string }> = {
-  green:  { color: 'text-green-700',  bg: 'bg-green-50 border-green-100',  icon: '✅' },
+  green:  { color: 'text-green-700',  bg: 'bg-green-50 border-green-100',   icon: '✅' },
   yellow: { color: 'text-yellow-700', bg: 'bg-yellow-50 border-yellow-100', icon: '⚠️' },
   red:    { color: 'text-red-700',    bg: 'bg-red-50 border-red-100',       icon: '🚨' },
   blue:   { color: 'text-blue-700',   bg: 'bg-blue-50 border-blue-100',     icon: 'ℹ️' },
 }
 
-type Fornecedor = { id: string; nome: string; uf: string; cnpj: string | null; contato: string | null; status: string; iso22716: boolean; iso9001: boolean; pendencias: number; mps_ativas: number; [k: string]: any }
-type CRMEvent = { id: string; fornecedor_id: string; tipo: string; titulo: string; detalhe: string | null; data_evento: string | null }
+const PORTE_LABEL: Record<string, string> = {
+  micro: 'Micro', pequeno: 'Pequeno', medio: 'Médio',
+  grande: 'Grande', multinacional: 'Multinacional',
+}
 
-export default function FornecedoresClient({ fornecedores, crm, canEdit }: {
+const CATEGORIA_LABEL: Record<string, string> = {
+  fabricante: 'Fabricante', distribuidor: 'Distribuidor',
+  importador: 'Importador', representante: 'Representante', outro: 'Outro',
+}
+
+const TIPO_CONTATO_COLOR: Record<string, string> = {
+  comercial: 'bg-blue-50 text-blue-700',
+  tecnico: 'bg-purple-50 text-purple-700',
+  financeiro: 'bg-amber-50 text-amber-700',
+  diretoria: 'bg-gray-50 text-gray-700',
+  outro: 'bg-slate-50 text-slate-600',
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function waLink(raw: string) {
+  const digits = raw.replace(/\D/g, '')
+  const number = digits.startsWith('55') ? digits : `55${digits}`
+  return `https://wa.me/${number}`
+}
+
+function StarRating({ value }: { value: number | null }) {
+  return (
+    <div className="flex gap-0.5">
+      {[1, 2, 3, 4, 5].map(i => (
+        <Star
+          key={i}
+          className={clsx('w-3.5 h-3.5', i <= (value ?? 0) ? 'text-amber-400 fill-amber-400' : 'text-gray-200 fill-gray-200')}
+        />
+      ))}
+    </div>
+  )
+}
+
+// ─── Formulário de Edição ─────────────────────────────────────────────────────
+
+type EditFormProps = {
+  fornecedor: Fornecedor
+  contatos: Contato[]
+  onSave: (data: Partial<Fornecedor>, contatos: Contato[]) => Promise<void>
+  onCancel: () => void
+}
+
+function EditForm({ fornecedor: f, contatos: initialContatos, onSave, onCancel }: EditFormProps) {
+  const [form, setForm] = useState<Partial<Fornecedor>>({
+    status: f.status,
+    whatsapp: f.whatsapp ?? '',
+    site: f.site ?? '',
+    descricao: f.descricao ?? '',
+    especialidade: f.especialidade ?? '',
+    linkedin: f.linkedin ?? '',
+    porte: f.porte ?? '',
+    categoria_fornecedor: f.categoria_fornecedor ?? '',
+    avaliacao_geral: f.avaliacao_geral,
+    prazo_entrega_dias: f.prazo_entrega_dias,
+    condicao_pagamento: f.condicao_pagamento ?? '',
+    observacoes: f.observacoes ?? '',
+    iso22716: f.iso22716,
+    iso9001: f.iso9001,
+  })
+  const [contatos, setContatos] = useState<Contato[]>(initialContatos)
+  const [saving, startSave] = useTransition()
+  const [tab, setTab] = useState<'geral' | 'contatos' | 'qualificacao'>('geral')
+
+  function setField(k: string, v: any) {
+    setForm(prev => ({ ...prev, [k]: v }))
+  }
+
+  function addContato() {
+    setContatos(prev => [...prev, {
+      id: `new-${Date.now()}`,
+      fornecedor_id: f.id,
+      nome: '', cargo: null, email: null, telefone: null,
+      whatsapp: null, linkedin: null, tipo: 'comercial' as const, principal: false
+    }])
+  }
+
+  function updateContato(idx: number, field: string, value: any) {
+    setContatos(prev => prev.map((c, i) => i === idx ? { ...c, [field]: value } : c))
+  }
+
+  function removeContato(idx: number) {
+    setContatos(prev => prev.filter((_, i) => i !== idx))
+  }
+
+  function handleSave() {
+    startSave(async () => { await onSave(form, contatos) })
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+        {/* Header */}
+        <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100">
+          <Edit3 className="w-5 h-5 text-brand-500" />
+          <div className="flex-1 min-w-0">
+            <h2 className="font-bold text-gray-900 truncate">{f.nome}</h2>
+            <p className="text-xs text-gray-400">Editar dados do fornecedor</p>
+          </div>
+          <button onClick={onCancel} className="p-1.5 hover:bg-gray-100 rounded-lg transition">
+            <X className="w-4 h-4 text-gray-500" />
+          </button>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-1 px-6 pt-3 pb-0 border-b border-gray-100">
+          {(['geral', 'contatos', 'qualificacao'] as const).map(t => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={clsx(
+                'text-xs font-medium px-3 py-2 rounded-t-lg border-b-2 transition-all capitalize',
+                tab === t
+                  ? 'border-brand-500 text-brand-600 bg-brand-50'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              )}
+            >
+              {t === 'geral' ? 'Dados Gerais' : t === 'contatos' ? 'Contatos' : 'Qualificação'}
+            </button>
+          ))}
+        </div>
+
+        {/* Body */}
+        <div className="overflow-y-auto flex-1 px-6 py-4">
+          {tab === 'geral' && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-gray-500 block mb-1">Status</label>
+                  <select
+                    value={form.status}
+                    onChange={e => setField('status', e.target.value)}
+                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-300"
+                  >
+                    {['Homologado', 'Em Avaliação', 'Reprovado', 'Inativo'].map(s => (
+                      <option key={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-500 block mb-1">Categoria</label>
+                  <select
+                    value={form.categoria_fornecedor ?? ''}
+                    onChange={e => setField('categoria_fornecedor', e.target.value || null)}
+                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-300"
+                  >
+                    <option value="">Selecionar...</option>
+                    {Object.entries(CATEGORIA_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-gray-500 block mb-1">Descrição</label>
+                <textarea
+                  value={form.descricao ?? ''}
+                  onChange={e => setField('descricao', e.target.value)}
+                  rows={3}
+                  placeholder="Quem é esse fornecedor, história, diferenciais..."
+                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-300 resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-gray-500 block mb-1">Especialidade / Portfolio</label>
+                <input
+                  value={form.especialidade ?? ''}
+                  onChange={e => setField('especialidade', e.target.value)}
+                  placeholder="Ex: Ativos cosméticos, óleos vegetais, fragrâncias..."
+                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-300"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-gray-500 block mb-1">WhatsApp (só dígitos)</label>
+                  <input
+                    value={form.whatsapp ?? ''}
+                    onChange={e => setField('whatsapp', e.target.value)}
+                    placeholder="5511999990000"
+                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-300"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-500 block mb-1">Site</label>
+                  <input
+                    value={form.site ?? ''}
+                    onChange={e => setField('site', e.target.value)}
+                    placeholder="https://..."
+                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-300"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-gray-500 block mb-1">LinkedIn</label>
+                  <input
+                    value={form.linkedin ?? ''}
+                    onChange={e => setField('linkedin', e.target.value)}
+                    placeholder="https://linkedin.com/company/..."
+                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-300"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-500 block mb-1">Porte</label>
+                  <select
+                    value={form.porte ?? ''}
+                    onChange={e => setField('porte', e.target.value || null)}
+                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-300"
+                  >
+                    <option value="">Selecionar...</option>
+                    {Object.entries(PORTE_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-gray-500 block mb-1">Observações internas</label>
+                <textarea
+                  value={form.observacoes ?? ''}
+                  onChange={e => setField('observacoes', e.target.value)}
+                  rows={2}
+                  placeholder="Notas internas, alertas, contexto de negociação..."
+                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-300 resize-none"
+                />
+              </div>
+            </div>
+          )}
+
+          {tab === 'contatos' && (
+            <div className="space-y-3">
+              {contatos.map((c, idx) => (
+                <div key={c.id} className="border border-gray-100 rounded-xl p-4 bg-gray-50 relative">
+                  <button
+                    onClick={() => removeContato(idx)}
+                    className="absolute top-3 right-3 p-1 hover:bg-gray-200 rounded transition"
+                  >
+                    <X className="w-3.5 h-3.5 text-gray-400" />
+                  </button>
+
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    <div>
+                      <label className="text-xs text-gray-400 block mb-1">Nome *</label>
+                      <input
+                        value={c.nome}
+                        onChange={e => updateContato(idx, 'nome', e.target.value)}
+                        placeholder="Nome completo"
+                        className="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-brand-300"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-400 block mb-1">Cargo</label>
+                      <input
+                        value={c.cargo ?? ''}
+                        onChange={e => updateContato(idx, 'cargo', e.target.value)}
+                        placeholder="Ex: Gerente Comercial"
+                        className="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-brand-300"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    <div>
+                      <label className="text-xs text-gray-400 block mb-1">E-mail</label>
+                      <input
+                        value={c.email ?? ''}
+                        onChange={e => updateContato(idx, 'email', e.target.value)}
+                        placeholder="contato@empresa.com.br"
+                        type="email"
+                        className="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-brand-300"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-400 block mb-1">WhatsApp</label>
+                      <input
+                        value={c.whatsapp ?? ''}
+                        onChange={e => updateContato(idx, 'whatsapp', e.target.value)}
+                        placeholder="5511999990000"
+                        className="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-brand-300"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 items-center">
+                    <div className="flex-1">
+                      <label className="text-xs text-gray-400 block mb-1">Tipo</label>
+                      <select
+                        value={c.tipo}
+                        onChange={e => updateContato(idx, 'tipo', e.target.value)}
+                        className="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-brand-300"
+                      >
+                        {Object.keys(TIPO_CONTATO_COLOR).map(t => (
+                          <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <label className="flex items-center gap-2 text-xs text-gray-500 mt-4 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={c.principal}
+                        onChange={e => updateContato(idx, 'principal', e.target.checked)}
+                        className="rounded"
+                      />
+                      Contato principal
+                    </label>
+                  </div>
+                </div>
+              ))}
+
+              <button
+                onClick={addContato}
+                className="w-full flex items-center justify-center gap-2 text-sm text-brand-600 border border-dashed border-brand-300 rounded-xl py-3 hover:bg-brand-50 transition"
+              >
+                <Plus className="w-4 h-4" /> Adicionar contato
+              </button>
+            </div>
+          )}
+
+          {tab === 'qualificacao' && (
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-medium text-gray-500 block mb-2">Avaliação Geral</label>
+                <div className="flex gap-2">
+                  {[1, 2, 3, 4, 5].map(n => (
+                    <button
+                      key={n}
+                      onClick={() => setField('avaliacao_geral', n === form.avaliacao_geral ? null : n)}
+                      className={clsx(
+                        'w-10 h-10 rounded-lg border-2 text-sm font-bold transition-all',
+                        n <= (form.avaliacao_geral ?? 0)
+                          ? 'border-amber-400 bg-amber-50 text-amber-600'
+                          : 'border-gray-200 text-gray-300 hover:border-amber-300'
+                      )}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                  <span className="self-center text-xs text-gray-400 ml-1">
+                    {form.avaliacao_geral ? `${form.avaliacao_geral}/5` : 'Não avaliado'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 cursor-pointer text-sm">
+                  <input
+                    type="checkbox"
+                    checked={!!form.iso22716}
+                    onChange={e => setField('iso22716', e.target.checked)}
+                    className="rounded"
+                  />
+                  <Shield className="w-4 h-4 text-blue-500" />
+                  ISO 22716
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer text-sm">
+                  <input
+                    type="checkbox"
+                    checked={!!form.iso9001}
+                    onChange={e => setField('iso9001', e.target.checked)}
+                    className="rounded"
+                  />
+                  <Shield className="w-4 h-4 text-indigo-500" />
+                  ISO 9001
+                </label>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-gray-500 block mb-1">Prazo de entrega (dias)</label>
+                  <input
+                    type="number"
+                    value={form.prazo_entrega_dias ?? ''}
+                    onChange={e => setField('prazo_entrega_dias', e.target.value ? parseInt(e.target.value) : null)}
+                    placeholder="Ex: 15"
+                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-300"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-500 block mb-1">Condição de pagamento</label>
+                  <input
+                    value={form.condicao_pagamento ?? ''}
+                    onChange={e => setField('condicao_pagamento', e.target.value)}
+                    placeholder="Ex: 30/60/90 DDL"
+                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-300"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-2xl">
+          <button onClick={onCancel} className="text-sm px-4 py-2 text-gray-500 hover:text-gray-700 transition">
+            Cancelar
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="flex items-center gap-2 text-sm px-5 py-2 bg-brand-500 text-white rounded-lg hover:bg-brand-600 transition disabled:opacity-50"
+          >
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            Salvar alterações
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Card do Fornecedor ───────────────────────────────────────────────────────
+
+function FornecedorCard({
+  f, events, canEdit, contatos,
+  isExpanded, onToggle, onEdit
+}: {
+  f: Fornecedor
+  events: CRMEvent[]
+  contatos: Contato[]
+  canEdit: boolean
+  isExpanded: boolean
+  onToggle: () => void
+  onEdit: () => void
+}) {
+  const cfg = STATUS_CONFIG[f.status] ?? STATUS_CONFIG['Inativo']
+  const hasCritical = events.some(e => e.tipo === 'red')
+  const principalContact = contatos.find(c => c.principal) ?? contatos[0] ?? null
+
+  return (
+    <div className={clsx(
+      'bg-white rounded-xl border shadow-sm transition-all',
+      hasCritical ? 'border-red-200' : 'border-gray-100',
+      isExpanded && 'shadow-md'
+    )}>
+      {/* Row principal */}
+      <div
+        className="flex items-center gap-4 px-5 py-4 cursor-pointer"
+        onClick={onToggle}
+      >
+        {/* Avatar */}
+        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center shrink-0">
+          <span className="text-white font-bold text-sm">{f.nome.charAt(0)}</span>
+        </div>
+
+        {/* Info */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="font-semibold text-gray-900 truncate">{f.nome}</p>
+            {hasCritical && <AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0" />}
+            {f.avaliacao_geral && <StarRating value={f.avaliacao_geral} />}
+          </div>
+          <div className="flex items-center gap-2 mt-0.5">
+            {f.especialidade
+              ? <p className="text-xs text-gray-400 truncate">{f.especialidade}</p>
+              : <p className="text-xs text-gray-400 truncate">{f.contato ?? '—'}</p>
+            }
+            {f.categoria_fornecedor && (
+              <span className="shrink-0 text-xs text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded">
+                {CATEGORIA_LABEL[f.categoria_fornecedor]}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Status */}
+        <span className={clsx('shrink-0 text-xs px-2.5 py-1 rounded-full font-medium', cfg.color)}>
+          <span className={clsx('inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle', cfg.dot)} />
+          {f.status}
+        </span>
+
+        {/* ISO badges */}
+        <div className="flex gap-1.5 shrink-0">
+          <span className={clsx('text-xs px-2 py-0.5 rounded font-medium',
+            f.iso22716 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-400 line-through'
+          )}>22716</span>
+          <span className={clsx('text-xs px-2 py-0.5 rounded font-medium',
+            f.iso9001 ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-400 line-through'
+          )}>9001</span>
+        </div>
+
+        {/* MPs + pendências */}
+        <div className="flex items-center gap-3 shrink-0 text-xs">
+          <span className="flex items-center gap-1 text-gray-500">
+            <Package className="w-3.5 h-3.5" />
+            {f.mps_ativas} MPs
+          </span>
+          {f.pendencias > 0 && (
+            <span className="bg-red-100 text-red-600 font-medium px-2 py-0.5 rounded-full">
+              {f.pendencias} pend.
+            </span>
+          )}
+        </div>
+
+        {/* WhatsApp rápido */}
+        {f.whatsapp && (
+          <a
+            href={waLink(f.whatsapp)}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={e => e.stopPropagation()}
+            className="shrink-0 flex items-center gap-1 text-xs text-green-600 bg-green-50 hover:bg-green-100 px-2.5 py-1.5 rounded-lg transition font-medium border border-green-100"
+          >
+            <MessageCircle className="w-3.5 h-3.5" />
+            WhatsApp
+          </a>
+        )}
+
+        {/* Site */}
+        {f.site && (
+          <a
+            href={f.site}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={e => e.stopPropagation()}
+            className="shrink-0 p-1.5 text-gray-400 hover:text-brand-500 hover:bg-brand-50 rounded-lg transition"
+          >
+            <Globe className="w-4 h-4" />
+          </a>
+        )}
+
+        {isExpanded
+          ? <ChevronUp className="w-4 h-4 text-gray-400 shrink-0" />
+          : <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" />
+        }
+      </div>
+
+      {/* Expanded */}
+      {isExpanded && (
+        <div className="px-5 pb-5 pt-0 border-t border-gray-50">
+          {/* Edit button */}
+          {canEdit && (
+            <div className="flex justify-end pt-3 pb-1">
+              <button
+                onClick={e => { e.stopPropagation(); onEdit() }}
+                className="flex items-center gap-1.5 text-xs text-brand-600 hover:text-brand-700 hover:bg-brand-50 px-3 py-1.5 rounded-lg transition border border-brand-100"
+              >
+                <Edit3 className="w-3.5 h-3.5" /> Editar fornecedor
+              </button>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-2">
+            {/* Dados cadastrais */}
+            <div>
+              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3 flex items-center gap-1.5">
+                <Building2 className="w-3.5 h-3.5" /> Dados Cadastrais
+              </h4>
+              <div className="space-y-2 text-sm">
+                {f.cnpj && (
+                  <div className="flex gap-2">
+                    <span className="text-gray-400 w-16 shrink-0">CNPJ</span>
+                    <span className="font-mono text-gray-700">{f.cnpj}</span>
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <span className="text-gray-400 w-16 shrink-0">UF</span>
+                  <span className="text-gray-700">{f.uf}</span>
+                </div>
+                {f.contato && (
+                  <div className="flex gap-2">
+                    <span className="text-gray-400 w-16 shrink-0">E-mail</span>
+                    <a href={`mailto:${f.contato}`} className="text-brand-600 hover:underline text-xs truncate">{f.contato}</a>
+                  </div>
+                )}
+                {f.prazo_entrega_dias && (
+                  <div className="flex gap-2">
+                    <span className="text-gray-400 w-16 shrink-0">Prazo</span>
+                    <span className="text-gray-700">{f.prazo_entrega_dias} dias</span>
+                  </div>
+                )}
+                {f.condicao_pagamento && (
+                  <div className="flex gap-2">
+                    <span className="text-gray-400 w-16 shrink-0">Pgto</span>
+                    <span className="text-gray-700">{f.condicao_pagamento}</span>
+                  </div>
+                )}
+
+                {/* Certificações */}
+                <div className="flex gap-1.5 flex-wrap mt-3">
+                  {f.iso22716
+                    ? <span className="flex items-center gap-1 text-xs text-blue-700 bg-blue-50 px-2 py-1 rounded"><Shield className="w-3 h-3" /> ISO 22716</span>
+                    : <span className="flex items-center gap-1 text-xs text-gray-400 bg-gray-50 px-2 py-1 rounded"><ShieldOff className="w-3 h-3" /> Sem 22716</span>
+                  }
+                  {f.iso9001
+                    ? <span className="flex items-center gap-1 text-xs text-indigo-700 bg-indigo-50 px-2 py-1 rounded"><Shield className="w-3 h-3" /> ISO 9001</span>
+                    : <span className="flex items-center gap-1 text-xs text-gray-400 bg-gray-50 px-2 py-1 rounded"><ShieldOff className="w-3 h-3" /> Sem 9001</span>
+                  }
+                </div>
+
+                {/* Links */}
+                <div className="flex gap-2 flex-wrap mt-2">
+                  {f.whatsapp && (
+                    <a href={waLink(f.whatsapp)} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-xs text-green-600 bg-green-50 hover:bg-green-100 px-2.5 py-1.5 rounded-lg transition font-medium border border-green-100">
+                      <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
+                    </a>
+                  )}
+                  {f.site && (
+                    <a href={f.site} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-xs text-gray-600 bg-gray-50 hover:bg-gray-100 px-2.5 py-1.5 rounded-lg transition border border-gray-200">
+                      <Globe className="w-3.5 h-3.5" /> Site
+                    </a>
+                  )}
+                  {f.linkedin && (
+                    <a href={f.linkedin} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-xs text-blue-600 bg-blue-50 hover:bg-blue-100 px-2.5 py-1.5 rounded-lg transition border border-blue-100">
+                      <Linkedin className="w-3.5 h-3.5" /> LinkedIn
+                    </a>
+                  )}
+                </div>
+              </div>
+
+              {/* Descrição */}
+              {f.descricao && (
+                <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                  <p className="text-xs text-gray-600 leading-relaxed">{f.descricao}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Contatos */}
+            <div>
+              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3 flex items-center gap-1.5">
+                <Users className="w-3.5 h-3.5" /> Contatos ({contatos.length})
+              </h4>
+              {contatos.length === 0 ? (
+                <p className="text-xs text-gray-400 italic">Nenhum contato cadastrado.</p>
+              ) : (
+                <div className="space-y-2">
+                  {contatos.map(c => (
+                    <div key={c.id} className="border border-gray-100 rounded-lg p-3 bg-gray-50">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <p className="text-xs font-semibold text-gray-800">{c.nome}</p>
+                            {c.principal && <BadgeCheck className="w-3 h-3 text-brand-500" />}
+                            <span className={clsx('text-xs px-1.5 py-0.5 rounded', TIPO_CONTATO_COLOR[c.tipo])}>
+                              {c.tipo}
+                            </span>
+                          </div>
+                          {c.cargo && <p className="text-xs text-gray-500 mb-1.5">{c.cargo}</p>}
+                          <div className="flex gap-2 flex-wrap">
+                            {c.email && (
+                              <a href={`mailto:${c.email}`} className="flex items-center gap-1 text-xs text-brand-600 hover:underline">
+                                <Mail className="w-3 h-3" /> {c.email}
+                              </a>
+                            )}
+                            {c.whatsapp && (
+                              <a href={waLink(c.whatsapp)} target="_blank" rel="noopener noreferrer"
+                                className="flex items-center gap-1 text-xs text-green-600 bg-green-50 px-1.5 py-0.5 rounded hover:bg-green-100 transition">
+                                <MessageCircle className="w-3 h-3" /> WA
+                              </a>
+                            )}
+                            {c.telefone && (
+                              <a href={`tel:${c.telefone}`}
+                                className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700">
+                                <Phone className="w-3 h-3" /> {c.telefone}
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* CRM */}
+            <div>
+              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                Histórico CRM ({events.length})
+              </h4>
+              {events.length === 0 ? (
+                <p className="text-xs text-gray-400 italic">Nenhum evento registrado.</p>
+              ) : (
+                <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
+                  {events.map(ev => {
+                    const crmCfg = CRM_CONFIG[ev.tipo] ?? CRM_CONFIG.blue
+                    return (
+                      <div key={ev.id} className={clsx('border rounded-lg px-3 py-2', crmCfg.bg)}>
+                        <div className="flex items-start gap-2">
+                          <span className="text-sm mt-0.5">{crmCfg.icon}</span>
+                          <div className="min-w-0">
+                            <p className={clsx('text-xs font-semibold', crmCfg.color)}>{ev.titulo}</p>
+                            {ev.detalhe && <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{ev.detalhe}</p>}
+                            {ev.data_evento && (
+                              <p className="text-xs text-gray-400 mt-1">
+                                {new Date(ev.data_evento).toLocaleDateString('pt-BR')}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Observações internas */}
+          {f.observacoes && (
+            <div className="mt-4 p-3 bg-amber-50 border border-amber-100 rounded-lg flex items-start gap-2">
+              <Info className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-700 leading-relaxed">{f.observacoes}</p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Componente Principal ─────────────────────────────────────────────────────
+
+export default function FornecedoresClient({ fornecedores, crm, contatos, canEdit }: {
   fornecedores: Fornecedor[]
   crm: CRMEvent[]
+  contatos: Contato[]
   canEdit: boolean
 }) {
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState<string>('todos')
   const [filterISO, setFilterISO] = useState<string>('todos')
+  const [filterCategoria, setFilterCategoria] = useState<string>('todos')
   const [expanded, setExpanded] = useState<string | null>(null)
+  const [editing, setEditing] = useState<string | null>(null)
+  const [localFornecedores, setLocalFornecedores] = useState(fornecedores)
+  const [localContatos, setLocalContatos] = useState(contatos)
 
   const filtered = useMemo(() => {
-    return fornecedores.filter(f => {
+    return localFornecedores.filter(f => {
       const matchSearch = search === '' ||
         f.nome.toLowerCase().includes(search.toLowerCase()) ||
+        (f.especialidade ?? '').toLowerCase().includes(search.toLowerCase()) ||
         (f.contato ?? '').toLowerCase().includes(search.toLowerCase())
       const matchStatus = filterStatus === 'todos' || f.status === filterStatus
       const matchISO = filterISO === 'todos' ||
         (filterISO === 'iso22716' && f.iso22716) ||
         (filterISO === 'sem_iso' && !f.iso22716)
-      return matchSearch && matchStatus && matchISO
+      const matchCategoria = filterCategoria === 'todos' || f.categoria_fornecedor === filterCategoria
+      return matchSearch && matchStatus && matchISO && matchCategoria
     })
-  }, [fornecedores, search, filterStatus, filterISO])
+  }, [localFornecedores, search, filterStatus, filterISO, filterCategoria])
 
-  const homologados = fornecedores.filter(f => f.status === 'Homologado').length
-  const emAvaliacao = fornecedores.filter(f => f.status === 'Em Avaliação').length
-  const comPendencias = fornecedores.filter(f => f.pendencias > 0).length
+  const homologados = localFornecedores.filter(f => f.status === 'Homologado').length
+  const emAvaliacao = localFornecedores.filter(f => f.status === 'Em Avaliação').length
+  const comPendencias = localFornecedores.filter(f => f.pendencias > 0).length
 
   const crmByForn = useMemo(() => {
     const m: Record<string, CRMEvent[]> = {}
@@ -57,24 +841,66 @@ export default function FornecedoresClient({ fornecedores, crm, canEdit }: {
     return m
   }, [crm])
 
+  const contatosByForn = useMemo(() => {
+    const m: Record<string, Contato[]> = {}
+    for (const c of localContatos) {
+      if (!m[c.fornecedor_id as any]) m[c.fornecedor_id as any] = []
+      m[c.fornecedor_id as any].push(c)
+    }
+    return m
+  }, [localContatos])
+
+  async function handleSave(id: string, data: Partial<Fornecedor>, updatedContatos: Contato[]) {
+    try {
+      const res = await fetch(`/api/fornecedores/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fornecedor: data, contatos: updatedContatos }),
+      })
+      if (!res.ok) throw new Error('Erro ao salvar')
+      const json = await res.json()
+      setLocalFornecedores(prev => prev.map(f => f.id === id ? { ...f, ...json.fornecedor } : f))
+      setLocalContatos(prev => [
+        ...prev.filter((c: any) => c.fornecedor_id !== id),
+        ...(json.contatos ?? [])
+      ])
+      setEditing(null)
+    } catch (err) {
+      console.error(err)
+      alert('Erro ao salvar. Tente novamente.')
+    }
+  }
+
+  const editingFornecedor = editing ? localFornecedores.find(f => f.id === editing) : null
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
+      {/* Modal de edição */}
+      {editingFornecedor && (
+        <EditForm
+          fornecedor={editingFornecedor}
+          contatos={contatosByForn[editingFornecedor.id] ?? []}
+          onSave={(data, ctts) => handleSave(editingFornecedor.id, data, ctts)}
+          onCancel={() => setEditing(null)}
+        />
+      )}
+
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <Users className="w-6 h-6 text-emerald-500" />
         <h1 className="text-xl font-bold text-gray-900">Fornecedores</h1>
-        <span className="text-sm text-gray-400 ml-1">{fornecedores.length} cadastrados</span>
+        <span className="text-sm text-gray-400 ml-1">{localFornecedores.length} cadastrados</span>
       </div>
 
-      {/* KPIs rápidos */}
+      {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         {[
-          { label: 'Homologados',  value: homologados,  color: 'text-green-600',  bg: 'bg-green-50',  icon: CheckCircle2 },
-          { label: 'Em Avaliação', value: emAvaliacao,  color: 'text-yellow-600', bg: 'bg-yellow-50', icon: AlertTriangle },
-          { label: 'Com Pendências', value: comPendencias, color: 'text-red-600',  bg: 'bg-red-50',    icon: FileWarning },
-          { label: 'Com ISO 22716', value: fornecedores.filter(f => f.iso22716).length, color: 'text-blue-600', bg: 'bg-blue-50', icon: Shield },
+          { label: 'Homologados',   value: homologados,  color: 'text-green-600',  bg: 'bg-green-50',  icon: CheckCircle2 },
+          { label: 'Em Avaliação',  value: emAvaliacao,  color: 'text-yellow-600', bg: 'bg-yellow-50', icon: AlertTriangle },
+          { label: 'Com Pendências',value: comPendencias, color: 'text-red-600',   bg: 'bg-red-50',    icon: FileWarning },
+          { label: 'Com ISO 22716', value: localFornecedores.filter(f => f.iso22716).length, color: 'text-blue-600', bg: 'bg-blue-50', icon: Shield },
         ].map(kpi => (
-          <div key={kpi.label} className={clsx('rounded-xl p-4 border', kpi.bg, 'border-transparent')}>
+          <div key={kpi.label} className={clsx('rounded-xl p-4 border border-transparent', kpi.bg)}>
             <div className="flex items-center gap-2">
               <kpi.icon className={clsx('w-4 h-4', kpi.color)} />
               <span className="text-xs text-gray-500">{kpi.label}</span>
@@ -91,7 +917,7 @@ export default function FornecedoresClient({ fornecedores, crm, canEdit }: {
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Buscar por nome ou contato..."
+            placeholder="Buscar por nome, especialidade ou contato..."
             className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-300"
           />
         </div>
@@ -115,159 +941,31 @@ export default function FornecedoresClient({ fornecedores, crm, canEdit }: {
           <option value="iso22716">Com ISO 22716</option>
           <option value="sem_iso">Sem ISO 22716</option>
         </select>
+        <select
+          value={filterCategoria}
+          onChange={e => setFilterCategoria(e.target.value)}
+          className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-300"
+        >
+          <option value="todos">Todas categorias</option>
+          {Object.entries(CATEGORIA_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+        </select>
         <span className="text-xs text-gray-400 self-center">{filtered.length} resultado{filtered.length !== 1 ? 's' : ''}</span>
       </div>
 
       {/* Cards */}
       <div className="space-y-3">
-        {filtered.map(f => {
-          const isExpanded = expanded === f.id
-          const events = crmByForn[f.id] ?? []
-          const cfg = STATUS_CONFIG[f.status] ?? STATUS_CONFIG['Inativo']
-          const hasCritical = events.some(e => e.tipo === 'red')
-
-          return (
-            <div
-              key={f.id}
-              className={clsx(
-                'bg-white rounded-xl border shadow-sm transition-all',
-                hasCritical ? 'border-red-200' : 'border-gray-100',
-                isExpanded && 'shadow-md'
-              )}
-            >
-              {/* Row principal */}
-              <div
-                className="flex items-center gap-4 px-5 py-4 cursor-pointer"
-                onClick={() => setExpanded(isExpanded ? null : f.id)}
-              >
-                {/* Avatar inicial */}
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center shrink-0">
-                  <span className="text-white font-bold text-sm">{f.nome.charAt(0)}</span>
-                </div>
-
-                {/* Info principal */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="font-semibold text-gray-900 truncate">{f.nome}</p>
-                    {hasCritical && <AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0" />}
-                  </div>
-                  <p className="text-xs text-gray-400 truncate">{f.contato ?? '—'}</p>
-                </div>
-
-                {/* Status */}
-                <span className={clsx('shrink-0 text-xs px-2.5 py-1 rounded-full font-medium', cfg.color)}>
-                  <span className={clsx('inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle', cfg.dot)} />
-                  {f.status}
-                </span>
-
-                {/* ISO badges */}
-                <div className="flex gap-1.5 shrink-0">
-                  <span className={clsx('text-xs px-2 py-0.5 rounded font-medium',
-                    f.iso22716 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-400 line-through'
-                  )}>
-                    22716
-                  </span>
-                  <span className={clsx('text-xs px-2 py-0.5 rounded font-medium',
-                    f.iso9001 ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-400 line-through'
-                  )}>
-                    9001
-                  </span>
-                </div>
-
-                {/* MPs + pendências */}
-                <div className="flex items-center gap-3 shrink-0 text-xs">
-                  <span className="flex items-center gap-1 text-gray-500">
-                    <Package className="w-3.5 h-3.5" />
-                    {f.mps_ativas} MPs
-                  </span>
-                  {f.pendencias > 0 && (
-                    <span className="bg-red-100 text-red-600 font-medium px-2 py-0.5 rounded-full">
-                      {f.pendencias} pend.
-                    </span>
-                  )}
-                </div>
-
-                {/* Chevron */}
-                {isExpanded
-                  ? <ChevronUp className="w-4 h-4 text-gray-400 shrink-0" />
-                  : <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" />
-                }
-              </div>
-
-              {/* Expanded: detalhes + CRM */}
-              {isExpanded && (
-                <div className="px-5 pb-5 pt-0 border-t border-gray-50">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-                    {/* Dados cadastrais */}
-                    <div>
-                      <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Dados Cadastrais</h4>
-                      <div className="space-y-2 text-sm">
-                        {f.cnpj && (
-                          <div className="flex gap-2">
-                            <span className="text-gray-400 w-16 shrink-0">CNPJ</span>
-                            <span className="font-mono text-gray-700">{f.cnpj}</span>
-                          </div>
-                        )}
-                        <div className="flex gap-2">
-                          <span className="text-gray-400 w-16 shrink-0">UF</span>
-                          <span className="text-gray-700">{f.uf}</span>
-                        </div>
-                        {f.contato && (
-                          <div className="flex gap-2">
-                            <span className="text-gray-400 w-16 shrink-0">Contato</span>
-                            <a href={`mailto:${f.contato}`} className="text-brand-600 hover:underline">{f.contato}</a>
-                          </div>
-                        )}
-                        <div className="flex gap-2 mt-3">
-                          {f.iso22716
-                            ? <span className="flex items-center gap-1 text-xs text-blue-700 bg-blue-50 px-2 py-1 rounded"><Shield className="w-3 h-3" /> ISO 22716 ativo</span>
-                            : <span className="flex items-center gap-1 text-xs text-gray-400 bg-gray-50 px-2 py-1 rounded"><ShieldOff className="w-3 h-3" /> Sem ISO 22716</span>
-                          }
-                          {f.iso9001
-                            ? <span className="flex items-center gap-1 text-xs text-indigo-700 bg-indigo-50 px-2 py-1 rounded"><Shield className="w-3 h-3" /> ISO 9001 ativo</span>
-                            : <span className="flex items-center gap-1 text-xs text-gray-400 bg-gray-50 px-2 py-1 rounded"><ShieldOff className="w-3 h-3" /> Sem ISO 9001</span>
-                          }
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* CRM */}
-                    <div>
-                      <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
-                        Histórico CRM ({events.length})
-                      </h4>
-                      {events.length === 0 ? (
-                        <p className="text-xs text-gray-400 italic">Nenhum evento registrado.</p>
-                      ) : (
-                        <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
-                          {events.map(ev => {
-                            const crmCfg = CRM_CONFIG[ev.tipo] ?? CRM_CONFIG.blue
-                            return (
-                              <div key={ev.id} className={clsx('border rounded-lg px-3 py-2', crmCfg.bg)}>
-                                <div className="flex items-start gap-2">
-                                  <span className="text-sm mt-0.5">{crmCfg.icon}</span>
-                                  <div className="min-w-0">
-                                    <p className={clsx('text-xs font-semibold', crmCfg.color)}>{ev.titulo}</p>
-                                    {ev.detalhe && <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{ev.detalhe}</p>}
-                                    {ev.data_evento && (
-                                      <p className="text-xs text-gray-400 mt-1">
-                                        {new Date(ev.data_evento).toLocaleDateString('pt-BR')}
-                                      </p>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )
-        })}
+        {filtered.map(f => (
+          <FornecedorCard
+            key={f.id}
+            f={f}
+            events={crmByForn[f.id] ?? []}
+            contatos={contatosByForn[f.id] ?? []}
+            canEdit={canEdit}
+            isExpanded={expanded === f.id}
+            onToggle={() => setExpanded(expanded === f.id ? null : f.id)}
+            onEdit={() => { setExpanded(f.id); setEditing(f.id) }}
+          />
+        ))}
       </div>
     </div>
   )

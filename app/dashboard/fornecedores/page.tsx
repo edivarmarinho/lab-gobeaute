@@ -7,7 +7,7 @@ export default async function FornecedoresPage() {
   const profile = await getProfile()
   const canEdit = profile?.role === 'admin' || profile?.role === 'pd'
 
-  const [{ data: fornecedores }, { data: crm }] = await Promise.all([
+  const [{ data: fornecedores }, { data: crm }, { data: contatos }] = await Promise.all([
     supabase
       .from('fornecedores')
       .select('*')
@@ -17,12 +17,18 @@ export default async function FornecedoresPage() {
       .from('fornecedor_crm')
       .select('*')
       .order('data_evento', { ascending: false }),
+    supabase
+      .from('fornecedor_contatos')
+      .select('*')
+      .eq('ativo', true)
+      .order('principal', { ascending: false }),
   ])
 
   return (
     <FornecedoresClient
       fornecedores={fornecedores ?? []}
       crm={crm ?? []}
+      contatos={contatos ?? []}
       canEdit={canEdit}
     />
   )

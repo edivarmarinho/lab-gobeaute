@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter, usePathname } from 'next/navigation'
 import {
   FlaskConical, Package, Users, FolderKanban,
-  FileText, LogOut, ShieldCheck,
+  FileText, LogOut, ShieldCheck, Beaker,
 } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import type { Profile } from '@/lib/types'
@@ -21,6 +21,7 @@ export default function Sidebar({ user, profile }: { user: User; profile: Profil
     { label: 'Dashboard',        href: '/dashboard',                    icon: FlaskConical },
     { label: 'Projetos P&D',     href: '/dashboard/projetos',           icon: FolderKanban },
     { label: 'Matérias-Primas',  href: '/dashboard/mps',                icon: Package },
+    { label: 'Fórmulas',         href: '/dashboard/formulas',           icon: Beaker },
     { label: 'Fornecedores',     href: '/dashboard/fornecedores',       icon: Users },
     { label: 'Documentos',       href: '/dashboard/documentos',         icon: FileText },
     ...(isAdmin ? [{ label: 'Usuários', href: '/dashboard/admin/usuarios', icon: ShieldCheck }] : []),

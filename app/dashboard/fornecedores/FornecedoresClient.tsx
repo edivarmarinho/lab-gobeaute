@@ -6,7 +6,7 @@ import {
   Package, FileWarning, Shield, ShieldOff, Phone, Globe, MessageCircle,
   Star, ExternalLink, Building2, Truck, Award, Edit3, Save, X,
   Mail, Linkedin, Clock, BadgeCheck, Info, BarChart3, ChevronRight,
-  Plus, Loader2
+  Plus, Loader2, GitBranch, FileCheck, CheckCheck
 } from 'lucide-react'
 import { clsx } from 'clsx'
 
@@ -946,6 +946,222 @@ function NovoFornecedorModal({ onClose, onCreated }: { onClose: () => void; onCr
   )
 }
 
+// ─── Workflow Tab ─────────────────────────────────────────────────────────────
+
+const HOMOLOG_ETAPAS = [
+  'Aval. Documental',
+  'Aprov. Documental',
+  'Aprov. Bancada',
+  'Testes QA',
+  'Homologado',
+] as const
+
+type HomologEtapa = typeof HOMOLOG_ETAPAS[number]
+
+const ETAPA_DOT: Record<HomologEtapa, string> = {
+  'Aval. Documental':  'bg-blue-400',
+  'Aprov. Documental': 'bg-indigo-400',
+  'Aprov. Bancada':    'bg-amber-400',
+  'Testes QA':         'bg-orange-400',
+  'Homologado':        'bg-green-500',
+}
+
+function WorkflowTab({
+  fornecedores, crm, canEdit, onIniciarHomolog,
+}: {
+  fornecedores: Fornecedor[]
+  crm: CRMEvent[]
+  canEdit: boolean
+  onIniciarHomolog: () => void
+}) {
+  const workflows = useMemo(() => {
+    return crm
+      .filter(ev => ev.titulo?.startsWith('Homologação iniciada'))
+      .map(ev => {
+        const match = ev.titulo.match(/—\s*(MP\S+)\s+(.+)$/)
+        const mpCodigo = match?.[1] ?? '—'
+        const mpNome   = match?.[2] ?? '—'
+        const detalheParts = ev.detalhe?.split('.') ?? []
+        const responsavel = detalheParts[0]?.replace('Responsável:', '').trim() ?? '—'
+        const prazoRaw = detalheParts[1]?.replace('Prazo:', '').trim() ?? 'a definir'
+        const etapa: HomologEtapa = 'Aval. Documental'
+        const forn = fornecedores.find(f => f.id === ev.fornecedor_id)
+        return { id: ev.id, fornecedorNome: forn?.nome ?? ev.fornecedor_id, mpCodigo, mpNome, etapa, responsavel, prazo: prazoRaw, data: ev.data_evento }
+      })
+  }, [crm, fornecedores])
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h2 className="font-semibold text-gray-900">Workflow de Homologação</h2>
+          <p className="text-xs text-gray-400 mt-0.5">{workflows.length} processo{workflows.length !== 1 ? 's' : ''} em andamento</p>
+        </div>
+        {canEdit && (
+          <button
+            onClick={onIniciarHomolog}
+            className="flex items-center gap-1.5 text-sm px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition font-medium"
+          >
+            <Plus className="w-4 h-4" />
+            Iniciar Homologação
+          </button>
+        )}
+      </div>
+
+      {workflows.length === 0 ? (
+        <div className="bg-gray-50 border border-dashed border-gray-200 rounded-xl p-12 text-center">
+          <GitBranch className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+          <p className="text-sm text-gray-400">Nenhum processo de homologação iniciado.</p>
+          {canEdit && (
+            <button onClick={onIniciarHomolog} className="mt-3 text-sm text-emerald-600 hover:text-emerald-700 font-medium underline">
+              Iniciar o primeiro processo
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-100">
+                <th className="text-left text-xs font-medium text-gray-400 pb-3 pr-4">MP</th>
+                <th className="text-left text-xs font-medium text-gray-400 pb-3 pr-4">Fornecedor</th>
+                <th className="text-left text-xs font-medium text-gray-400 pb-3 pr-4">Etapa</th>
+                <th className="text-left text-xs font-medium text-gray-400 pb-3 pr-4">Responsável</th>
+                <th className="text-left text-xs font-medium text-gray-400 pb-3 pr-4">Início</th>
+                <th className="text-left text-xs font-medium text-gray-400 pb-3">Prazo</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {workflows.map(w => (
+                <tr key={w.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="py-3 pr-4">
+                    <p className="font-mono text-xs text-gray-500">{w.mpCodigo}</p>
+                    <p className="text-xs text-gray-800 font-medium">{w.mpNome}</p>
+                  </td>
+                  <td className="py-3 pr-4 text-gray-700">{w.fornecedorNome}</td>
+                  <td className="py-3 pr-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={clsx('w-2 h-2 rounded-full shrink-0', ETAPA_DOT[w.etapa])} />
+                      <span className="text-xs font-medium text-gray-700">{w.etapa}</span>
+                    </div>
+                    <div className="flex gap-0.5">
+                      {HOMOLOG_ETAPAS.map((e, i) => (
+                        <div
+                          key={e}
+                          className={clsx(
+                            'h-1.5 flex-1 rounded-full',
+                            i <= HOMOLOG_ETAPAS.indexOf(w.etapa) ? 'bg-emerald-400' : 'bg-gray-200'
+                          )}
+                        />
+                      ))}
+                    </div>
+                  </td>
+                  <td className="py-3 pr-4 text-gray-600 text-xs">{w.responsavel}</td>
+                  <td className="py-3 pr-4 text-gray-500 text-xs">
+                    {w.data ? new Date(w.data).toLocaleDateString('pt-BR') : '—'}
+                  </td>
+                  <td className="py-3 text-gray-500 text-xs">{w.prazo}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Documentos Tab ───────────────────────────────────────────────────────────
+
+const DOC_TIPOS = ['FISPQ', 'COA', 'Ficha Téc.', 'ISO 22716', 'ISO 9001', 'Laudo Micro'] as const
+
+type DocStatus = 'ok' | 'pendente' | 'vencido'
+
+function DocCell({ status }: { status: DocStatus }) {
+  if (status === 'ok')      return <CheckCircle2 className="w-4 h-4 text-green-500 mx-auto" />
+  if (status === 'vencido') return <AlertTriangle className="w-4 h-4 text-amber-400 mx-auto" />
+  return <XCircle className="w-4 h-4 text-gray-300 mx-auto" />
+}
+
+function DocumentosTab({ fornecedores }: { fornecedores: Fornecedor[] }) {
+  const [searchDoc, setSearchDoc] = useState('')
+
+  const visible = fornecedores.filter(f =>
+    searchDoc === '' || f.nome.toLowerCase().includes(searchDoc.toLowerCase())
+  )
+
+  function docStatus(f: Fornecedor, tipo: string): DocStatus {
+    if (tipo === 'ISO 22716') return f.iso22716 ? 'ok' : 'pendente'
+    if (tipo === 'ISO 9001')  return f.iso9001  ? 'ok' : 'pendente'
+    return 'pendente'
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h2 className="font-semibold text-gray-900">Documentos por Fornecedor</h2>
+          <p className="text-xs text-gray-400 mt-0.5">Checkmarks de documentação — ISO, FISPQ, COA, laudos</p>
+        </div>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+          <input
+            value={searchDoc}
+            onChange={e => setSearchDoc(e.target.value)}
+            placeholder="Filtrar fornecedor..."
+            className="pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-300 w-52"
+          />
+        </div>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm border-collapse">
+          <thead>
+            <tr className="bg-gray-50 border-b border-gray-100">
+              <th className="text-left text-xs font-medium text-gray-500 px-4 py-3 w-48">Fornecedor</th>
+              {DOC_TIPOS.map(t => (
+                <th key={t} className="text-center text-xs font-medium text-gray-500 px-3 py-3 min-w-[80px]">{t}</th>
+              ))}
+              <th className="text-center text-xs font-medium text-gray-500 px-3 py-3">Pendências</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-50">
+            {visible.map(f => {
+              const statuses = DOC_TIPOS.map(t => docStatus(f, t))
+              const pendencias = statuses.filter(s => s !== 'ok').length
+              return (
+                <tr key={f.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-4 py-3">
+                    <p className="font-medium text-gray-800 text-sm">{f.nome}</p>
+                    <p className="text-xs text-gray-400">{f.uf}</p>
+                  </td>
+                  {DOC_TIPOS.map((t, i) => (
+                    <td key={t} className="px-3 py-3">
+                      <DocCell status={statuses[i]} />
+                    </td>
+                  ))}
+                  <td className="px-3 py-3 text-center">
+                    {pendencias > 0
+                      ? <span className="text-xs font-medium text-red-600 bg-red-50 px-2 py-0.5 rounded-full">{pendencias}</span>
+                      : <span className="text-xs font-medium text-green-600 bg-green-50 px-2 py-0.5 rounded-full">OK</span>
+                    }
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="flex items-center gap-4 mt-4 text-xs text-gray-400">
+        <span className="flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5 text-green-500" /> Documento OK</span>
+        <span className="flex items-center gap-1"><AlertTriangle className="w-3.5 h-3.5 text-amber-400" /> Vencido / Alerta</span>
+        <span className="flex items-center gap-1"><XCircle className="w-3.5 h-3.5 text-gray-300" /> Não informado</span>
+      </div>
+    </div>
+  )
+}
+
 // ─── Componente Principal ─────────────────────────────────────────────────────
 
 export default function FornecedoresClient({ fornecedores, crm, contatos, canEdit }: {
@@ -961,6 +1177,10 @@ export default function FornecedoresClient({ fornecedores, crm, contatos, canEdi
   const [expanded, setExpanded] = useState<string | null>(null)
   const [editing, setEditing] = useState<string | null>(null)
   const [novoModal, setNovoModal] = useState(false)
+  const [mainTab, setMainTab] = useState<'painel' | 'workflow' | 'documentos'>('painel')
+  const [homologModal, setHomologModal] = useState(false)
+  const [homologForm, setHomologForm] = useState({ fornecedor_id: '', mp_codigo: '', mp_nome: '', responsavel: 'Patrícia', prazo: '' })
+  const [homologSaving, setHomologSaving] = useState(false)
   const [localFornecedores, setLocalFornecedores] = useState(fornecedores)
   const [localContatos, setLocalContatos] = useState(contatos)
 
@@ -1044,6 +1264,64 @@ export default function FornecedoresClient({ fornecedores, crm, contatos, canEdi
         />
       )}
 
+      {/* Modal Iniciar Homologação */}
+      {homologModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col">
+            <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100">
+              <GitBranch className="w-5 h-5 text-emerald-500" />
+              <h2 className="font-bold text-gray-900">Iniciar Homologação</h2>
+              <button onClick={() => setHomologModal(false)} className="ml-auto p-1.5 hover:bg-gray-100 rounded-lg"><X className="w-4 h-4 text-gray-500" /></button>
+            </div>
+            <div className="px-6 py-4 space-y-3">
+              <div>
+                <label className="text-xs font-medium text-gray-500 block mb-1">Fornecedor</label>
+                <select className="input" value={homologForm.fornecedor_id} onChange={e => setHomologForm(p => ({ ...p, fornecedor_id: e.target.value }))}>
+                  <option value="">— selecione —</option>
+                  {localFornecedores.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-gray-500 block mb-1">Código MP</label>
+                  <input className="input" value={homologForm.mp_codigo} onChange={e => setHomologForm(p => ({ ...p, mp_codigo: e.target.value }))} placeholder="MP0022" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-500 block mb-1">Nome MP</label>
+                  <input className="input" value={homologForm.mp_nome} onChange={e => setHomologForm(p => ({ ...p, mp_nome: e.target.value }))} placeholder="Ácido Cítrico" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-gray-500 block mb-1">Responsável</label>
+                  <input className="input" value={homologForm.responsavel} onChange={e => setHomologForm(p => ({ ...p, responsavel: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-500 block mb-1">Prazo</label>
+                  <input className="input" type="date" value={homologForm.prazo} onChange={e => setHomologForm(p => ({ ...p, prazo: e.target.value }))} />
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-2xl">
+              <button onClick={() => setHomologModal(false)} className="text-sm px-4 py-2 text-gray-500">Cancelar</button>
+              <button
+                disabled={homologSaving || !homologForm.fornecedor_id || !homologForm.mp_codigo}
+                onClick={async () => {
+                  setHomologSaving(true)
+                  await fetch('/api/homolog', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(homologForm) })
+                  setHomologSaving(false)
+                  setHomologModal(false)
+                }}
+                className="flex items-center gap-2 text-sm px-5 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition disabled:opacity-50"
+              >
+                {homologSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <GitBranch className="w-4 h-4" />}
+                Iniciar processo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <Users className="w-6 h-6 text-emerald-500" />
@@ -1078,63 +1356,106 @@ export default function FornecedoresClient({ fornecedores, crm, contatos, canEdi
         ))}
       </div>
 
-      {/* Filtros */}
-      <div className="flex flex-wrap gap-3 mb-5">
-        <div className="relative flex-1 min-w-48">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Buscar por nome, especialidade ou contato..."
-            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-300"
-          />
-        </div>
-        <select
-          value={filterStatus}
-          onChange={e => setFilterStatus(e.target.value)}
-          className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-300"
-        >
-          <option value="todos">Todos os status</option>
-          <option value="Homologado">Homologado</option>
-          <option value="Em Avaliação">Em Avaliação</option>
-          <option value="Reprovado">Reprovado</option>
-          <option value="Inativo">Inativo</option>
-        </select>
-        <select
-          value={filterISO}
-          onChange={e => setFilterISO(e.target.value)}
-          className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-300"
-        >
-          <option value="todos">Todos (ISO)</option>
-          <option value="iso22716">Com ISO 22716</option>
-          <option value="sem_iso">Sem ISO 22716</option>
-        </select>
-        <select
-          value={filterCategoria}
-          onChange={e => setFilterCategoria(e.target.value)}
-          className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-300"
-        >
-          <option value="todos">Todas categorias</option>
-          {Object.entries(CATEGORIA_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-        </select>
-        <span className="text-xs text-gray-400 self-center">{filtered.length} resultado{filtered.length !== 1 ? 's' : ''}</span>
-      </div>
-
-      {/* Cards */}
-      <div className="space-y-3">
-        {filtered.map(f => (
-          <FornecedorCard
-            key={f.id}
-            f={f}
-            events={crmByForn[f.id] ?? []}
-            contatos={contatosByForn[f.id] ?? []}
-            canEdit={canEdit}
-            isExpanded={expanded === f.id}
-            onToggle={() => setExpanded(expanded === f.id ? null : f.id)}
-            onEdit={() => { setExpanded(f.id); setEditing(f.id) }}
-          />
+      {/* Tabs principais */}
+      <div className="flex gap-1 border-b border-gray-200 mb-5">
+        {([
+          { key: 'painel', label: 'Painel Geral', icon: BarChart3 },
+          { key: 'workflow', label: 'Workflow Homologação', icon: GitBranch },
+          { key: 'documentos', label: 'Documentos', icon: FileCheck },
+        ] as const).map(({ key, label, icon: Icon }) => (
+          <button
+            key={key}
+            onClick={() => setMainTab(key)}
+            className={clsx(
+              'flex items-center gap-1.5 text-sm font-medium px-4 py-2.5 border-b-2 transition-all',
+              mainTab === key
+                ? 'border-brand-500 text-brand-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            )}
+          >
+            <Icon className="w-4 h-4" />
+            {label}
+          </button>
         ))}
       </div>
+
+      {/* ── ABA: Painel Geral ── */}
+      {mainTab === 'painel' && (
+        <>
+          {/* Filtros */}
+          <div className="flex flex-wrap gap-3 mb-5">
+            <div className="relative flex-1 min-w-48">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Buscar por nome, especialidade ou contato..."
+                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-300"
+              />
+            </div>
+            <select
+              value={filterStatus}
+              onChange={e => setFilterStatus(e.target.value)}
+              className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-300"
+            >
+              <option value="todos">Todos os status</option>
+              <option value="Homologado">Homologado</option>
+              <option value="Em Avaliação">Em Avaliação</option>
+              <option value="Reprovado">Reprovado</option>
+              <option value="Inativo">Inativo</option>
+            </select>
+            <select
+              value={filterISO}
+              onChange={e => setFilterISO(e.target.value)}
+              className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-300"
+            >
+              <option value="todos">Todos (ISO)</option>
+              <option value="iso22716">Com ISO 22716</option>
+              <option value="sem_iso">Sem ISO 22716</option>
+            </select>
+            <select
+              value={filterCategoria}
+              onChange={e => setFilterCategoria(e.target.value)}
+              className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-300"
+            >
+              <option value="todos">Todas categorias</option>
+              {Object.entries(CATEGORIA_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </select>
+            <span className="text-xs text-gray-400 self-center">{filtered.length} resultado{filtered.length !== 1 ? 's' : ''}</span>
+          </div>
+
+          {/* Cards */}
+          <div className="space-y-3">
+            {filtered.map(f => (
+              <FornecedorCard
+                key={f.id}
+                f={f}
+                events={crmByForn[f.id] ?? []}
+                contatos={contatosByForn[f.id] ?? []}
+                canEdit={canEdit}
+                isExpanded={expanded === f.id}
+                onToggle={() => setExpanded(expanded === f.id ? null : f.id)}
+                onEdit={() => { setExpanded(f.id); setEditing(f.id) }}
+              />
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* ── ABA: Workflow Homologação ── */}
+      {mainTab === 'workflow' && (
+        <WorkflowTab
+          fornecedores={localFornecedores}
+          crm={crm}
+          canEdit={canEdit}
+          onIniciarHomolog={() => setHomologModal(true)}
+        />
+      )}
+
+      {/* ── ABA: Documentos ── */}
+      {mainTab === 'documentos' && (
+        <DocumentosTab fornecedores={localFornecedores} />
+      )}
     </div>
   )
 }

@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react'
 import {
   Package, Plus, X, Search, Filter, ChevronDown, ChevronUp,
-  Leaf, FlaskConical, ShieldCheck, AlertTriangle,
+  Leaf, FlaskConical, ShieldCheck, AlertTriangle, Telescope,
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { MARCAS_DISPONIVEIS } from '@/lib/types'
@@ -386,6 +386,70 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
+// ─── Gaps Modal ───────────────────────────────────────────────────────────────
+
+function GapsModal({ mps, onClose, onCadastrar }: { mps: MP[]; onClose: () => void; onCadastrar: (codigo: string) => void }) {
+  const gaps = useMemo(() => {
+    const codigos = new Set(mps.map(m => m.codigo.toUpperCase()))
+    const result: string[] = []
+    const nums = mps
+      .map(m => parseInt(m.codigo.replace(/\D/g, ''), 10))
+      .filter(n => !isNaN(n))
+    if (nums.length === 0) return result
+    const min = Math.min(...nums)
+    const max = Math.max(...nums)
+    for (let i = min; i <= max; i++) {
+      const padded = `MP${String(i).padStart(4, '0')}`
+      if (!codigos.has(padded)) result.push(padded)
+    }
+    return result.slice(0, 100)
+  }, [mps])
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col max-h-[80vh]">
+        <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100">
+          <Telescope className="w-5 h-5 text-purple-500" />
+          <div>
+            <h2 className="font-bold text-gray-900">Gaps na Sequência de MPs</h2>
+            <p className="text-xs text-gray-400">{gaps.length} código{gaps.length !== 1 ? 's' : ''} faltando</p>
+          </div>
+          <button onClick={onClose} className="ml-auto p-1.5 hover:bg-gray-100 rounded-lg">
+            <X className="w-4 h-4 text-gray-500" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          {gaps.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-8">Sequência contínua — nenhum gap!</p>
+          ) : (
+            <div className="space-y-1.5">
+              {gaps.map(codigo => (
+                <div key={codigo} className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg border border-gray-100">
+                  <span className="font-mono text-sm text-gray-700">{codigo}</span>
+                  <button
+                    onClick={() => { onClose(); onCadastrar(codigo) }}
+                    className="text-xs text-blue-600 hover:text-blue-700 font-medium px-2.5 py-1 bg-blue-50 hover:bg-blue-100 rounded-md transition"
+                  >
+                    Cadastrar
+                  </button>
+                </div>
+              ))}
+              {gaps.length === 100 && (
+                <p className="text-xs text-gray-400 text-center pt-2">Mostrando os primeiros 100 gaps.</p>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="flex justify-end px-6 py-3 border-t border-gray-100 bg-gray-50 rounded-b-2xl">
+          <button onClick={onClose} className="text-sm px-4 py-2 text-gray-500 hover:text-gray-700">Fechar</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
 export default function MPsClient({ mps: initialMps, canEdit }: { mps: MP[]; canEdit: boolean }) {
   const [mps, setMps] = useState<MP[]>(initialMps)
   const [search, setSearch] = useState('')
@@ -394,6 +458,7 @@ export default function MPsClient({ mps: initialMps, canEdit }: { mps: MP[]; can
   const [editingMp, setEditingMp] = useState<MP | null | 'new'>('new' as any)
   const [modalOpen, setModalOpen] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [gapsOpen, setGapsOpen] = useState(false)
 
   const filtered = useMemo(() => {
     return mps.filter(mp => {
@@ -428,17 +493,37 @@ export default function MPsClient({ mps: initialMps, canEdit }: { mps: MP[]; can
     setModalOpen(false)
   }
 
+  function openWithCode(codigo: string) {
+    setEditingMp(null)
+    setModalOpen(true)
+  }
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
+      {gapsOpen && (
+        <GapsModal
+          mps={mps}
+          onClose={() => setGapsOpen(false)}
+          onCadastrar={openWithCode}
+        />
+      )}
+
       {/* Header */}
       <div className="flex items-center gap-3 mb-5">
         <Package className="w-6 h-6 text-blue-500" />
         <h1 className="text-xl font-bold text-gray-900">Matérias-Primas</h1>
         <span className="text-sm text-gray-400">{filtered.length} de {mps.length}</span>
+        <button
+          onClick={() => setGapsOpen(true)}
+          className="ml-auto flex items-center gap-1.5 px-3 py-2 text-purple-600 text-sm font-medium rounded-lg hover:bg-purple-50 border border-purple-200 transition"
+        >
+          <Telescope className="w-4 h-4" />
+          Ver Gaps
+        </button>
         {canEdit && (
           <button
             onClick={openNew}
-            className="ml-auto flex items-center gap-1.5 px-3 py-2 bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-600 transition"
+            className="flex items-center gap-1.5 px-3 py-2 bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-600 transition"
           >
             <Plus className="w-4 h-4" />
             Nova MP

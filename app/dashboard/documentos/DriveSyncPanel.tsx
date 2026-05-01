@@ -27,7 +27,9 @@ export default function DriveSyncPanel({ canSync }: { canSync: boolean }) {
     try {
       const res = await fetch('/api/sync/drive')
       if (res.ok) setStatus(await res.json())
-    } catch {}
+    } catch {
+      // falha silenciosa intencional: painel fica oculto se API não responder
+    }
   }
 
   useEffect(() => { fetchStatus() }, [])

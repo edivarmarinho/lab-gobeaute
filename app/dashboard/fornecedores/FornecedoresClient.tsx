@@ -122,9 +122,10 @@ type EditFormProps = {
   contatos: Contato[]
   onSave: (data: Partial<Fornecedor>, contatos: Contato[]) => Promise<void>
   onCancel: () => void
+  externalError?: string | null
 }
 
-function EditForm({ fornecedor: f, contatos: initialContatos, onSave, onCancel }: EditFormProps) {
+function EditForm({ fornecedor: f, contatos: initialContatos, onSave, onCancel, externalError }: EditFormProps) {
   const [form, setForm] = useState<Partial<Fornecedor>>({
     status: f.status,
     whatsapp: f.whatsapp ?? '',
@@ -474,6 +475,9 @@ function EditForm({ fornecedor: f, contatos: initialContatos, onSave, onCancel }
         </div>
 
         {/* Footer */}
+        {externalError && (
+          <p className="px-6 py-2 text-xs text-red-600 bg-red-50 border-t border-red-100">{externalError}</p>
+        )}
         <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-2xl">
           <button onClick={onCancel} className="text-sm px-4 py-2 text-gray-500 hover:text-gray-700 transition">
             Cancelar
@@ -1176,6 +1180,7 @@ export default function FornecedoresClient({ fornecedores, crm, contatos, canEdi
   const [filterCategoria, setFilterCategoria] = useState<string>('todos')
   const [expanded, setExpanded] = useState<string | null>(null)
   const [editing, setEditing] = useState<string | null>(null)
+  const [editError, setEditError] = useState<string | null>(null)
   const [novoModal, setNovoModal] = useState(false)
   const [mainTab, setMainTab] = useState<'painel' | 'workflow' | 'documentos'>('painel')
   const [homologModal, setHomologModal] = useState(false)
@@ -1222,23 +1227,24 @@ export default function FornecedoresClient({ fornecedores, crm, contatos, canEdi
   }, [localContatos])
 
   async function handleSave(id: string, data: Partial<Fornecedor>, updatedContatos: Contato[]) {
+    setEditError(null)
     try {
       const res = await fetch(`/api/fornecedores/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fornecedor: data, contatos: updatedContatos }),
       })
-      if (!res.ok) throw new Error('Erro ao salvar')
       const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? 'Erro ao salvar')
       setLocalFornecedores(prev => prev.map(f => f.id === id ? { ...f, ...json.fornecedor } : f))
       setLocalContatos(prev => [
         ...prev.filter((c: any) => c.fornecedor_id !== id),
         ...(json.contatos ?? [])
       ])
       setEditing(null)
-    } catch (err) {
-      console.error(err)
-      alert('Erro ao salvar. Tente novamente.')
+      setEditError(null)
+    } catch (err: any) {
+      setEditError(err.message ?? 'Erro ao salvar. Tente novamente.')
     }
   }
 
@@ -1260,7 +1266,8 @@ export default function FornecedoresClient({ fornecedores, crm, contatos, canEdi
           fornecedor={editingFornecedor}
           contatos={contatosByForn[editingFornecedor.id] ?? []}
           onSave={(data, ctts) => handleSave(editingFornecedor.id, data, ctts)}
-          onCancel={() => setEditing(null)}
+          onCancel={() => { setEditing(null); setEditError(null) }}
+          externalError={editError}
         />
       )}
 

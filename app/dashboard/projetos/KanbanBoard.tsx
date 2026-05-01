@@ -144,6 +144,24 @@ export default function KanbanBoard({ projetos: initialProjetos, canEdit }: { pr
   const [projetos, setProjetos] = useState<any[]>(initialProjetos)
   const [expanded, setExpanded] = useState<string | null>(null)
   const [novoModal, setNovoModal] = useState(false)
+  const [movendo, setMovendo] = useState<string | null>(null)
+
+  async function moverEtapa(projetoId: string, novaEtapa: Etapa) {
+    setMovendo(projetoId)
+    try {
+      const res = await fetch(`/api/projetos/${projetoId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ etapa: novaEtapa }),
+      })
+      if (!res.ok) throw new Error('Erro ao mover')
+      setProjetos(prev => prev.map(p => p.id === projetoId ? { ...p, etapa: novaEtapa } : p))
+    } catch {
+      alert('Erro ao mover projeto. Tente novamente.')
+    } finally {
+      setMovendo(null)
+    }
+  }
 
   const byEtapa = ETAPAS.reduce<Record<string, any[]>>((acc, etapa) => {
     acc[etapa] = projetos.filter(p => p.etapa === etapa)
@@ -195,6 +213,8 @@ export default function KanbanBoard({ projetos: initialProjetos, canEdit }: { pr
                     expanded={expanded === p.id}
                     onToggle={() => setExpanded(expanded === p.id ? null : p.id)}
                     canEdit={canEdit}
+                    isMoving={movendo === p.id}
+                    onMoverEtapa={moverEtapa}
                   />
                 ))}
                 {cards.length === 0 && (
@@ -211,16 +231,24 @@ export default function KanbanBoard({ projetos: initialProjetos, canEdit }: { pr
   )
 }
 
-function ProjectCard({ projeto: p, expanded, onToggle, canEdit }: {
+function ProjectCard({ projeto: p, expanded, onToggle, canEdit, isMoving, onMoverEtapa }: {
   projeto: any
   expanded: boolean
   onToggle: () => void
   canEdit: boolean
+  isMoving: boolean
+  onMoverEtapa: (id: string, etapa: Etapa) => void
 }) {
+  const etapaIdx = ETAPAS.indexOf(p.etapa as Etapa)
+  const proximaEtapa = etapaIdx < ETAPAS.length - 1 ? ETAPAS[etapaIdx + 1] : null
+
   return (
     <div
       onClick={onToggle}
-      className="bg-white rounded-lg border border-gray-100 p-3 cursor-pointer hover:shadow-md hover:border-gray-200 transition-all group"
+      className={clsx(
+        'bg-white rounded-lg border border-gray-100 p-3 cursor-pointer hover:shadow-md hover:border-gray-200 transition-all group',
+        isMoving && 'opacity-60'
+      )}
     >
       {/* Código + tipo */}
       <div className="flex items-center gap-1.5 mb-2">
@@ -259,10 +287,18 @@ function ProjectCard({ projeto: p, expanded, onToggle, canEdit }: {
             {p.responsavel && <span>👤 {p.responsavel}</span>}
             {p.data_inicio && <span>📅 {new Date(p.data_inicio).toLocaleDateString('pt-BR')}</span>}
           </div>
-          {canEdit && (
-            <button className="w-full text-xs text-brand-600 hover:text-brand-700 font-medium flex items-center justify-center gap-1 mt-1">
-              Editar projeto <ChevronRight className="w-3 h-3" />
+          {canEdit && proximaEtapa && (
+            <button
+              disabled={isMoving}
+              onClick={e => { e.stopPropagation(); onMoverEtapa(p.id, proximaEtapa) }}
+              className="w-full text-xs text-emerald-600 hover:text-emerald-700 font-medium flex items-center justify-center gap-1 mt-1 bg-emerald-50 hover:bg-emerald-100 rounded-md py-1.5 transition disabled:opacity-50"
+            >
+              {isMoving ? <Loader2 className="w-3 h-3 animate-spin" /> : <ChevronRight className="w-3 h-3" />}
+              Avançar para {proximaEtapa}
             </button>
+          )}
+          {canEdit && !proximaEtapa && (
+            <p className="text-xs text-emerald-600 font-medium text-center">✓ Etapa final atingida</p>
           )}
         </div>
       )}

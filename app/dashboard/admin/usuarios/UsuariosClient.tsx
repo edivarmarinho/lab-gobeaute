@@ -4,24 +4,34 @@ import { useState } from 'react'
 import type { Profile, UserRole } from '@/lib/types'
 import { MARCAS_DISPONIVEIS, ROLE_LABEL, ROLE_BADGE_COLOR } from '@/lib/types'
 import { clsx } from 'clsx'
+import { CheckCircle2, AlertTriangle } from 'lucide-react'
 
 export default function UsuariosClient({ profiles }: { profiles: Profile[] }) {
   const [saving, setSaving] = useState<string | null>(null)
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [success, setSuccess] = useState<Record<string, boolean>>({})
   const [localProfiles, setLocalProfiles] = useState(profiles)
 
   async function updateUser(id: string, updates: { role?: UserRole; marcas?: string[] }) {
     setSaving(id)
-    const res = await fetch(`/api/admin/usuarios/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updates),
-    })
-    if (res.ok) {
-      setLocalProfiles(prev =>
-        prev.map(p => (p.id === id ? { ...p, ...updates } : p))
-      )
+    setErrors(prev => { const n = { ...prev }; delete n[id]; return n })
+    setSuccess(prev => { const n = { ...prev }; delete n[id]; return n })
+    try {
+      const res = await fetch(`/api/admin/usuarios/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? 'Erro ao salvar')
+      setLocalProfiles(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p))
+      setSuccess(prev => ({ ...prev, [id]: true }))
+      setTimeout(() => setSuccess(prev => { const n = { ...prev }; delete n[id]; return n }), 3000)
+    } catch (err: any) {
+      setErrors(prev => ({ ...prev, [id]: err.message ?? 'Erro ao salvar' }))
+    } finally {
+      setSaving(null)
     }
-    setSaving(null)
   }
 
   return (
@@ -41,6 +51,8 @@ export default function UsuariosClient({ profiles }: { profiles: Profile[] }) {
               key={p.id}
               profile={p}
               saving={saving === p.id}
+              error={errors[p.id] ?? null}
+              saved={success[p.id] ?? false}
               onUpdate={updates => updateUser(p.id, updates)}
             />
           ))}
@@ -53,10 +65,14 @@ export default function UsuariosClient({ profiles }: { profiles: Profile[] }) {
 function UsuarioRow({
   profile,
   saving,
+  error,
+  saved,
   onUpdate,
 }: {
   profile: Profile
   saving: boolean
+  error: string | null
+  saved: boolean
   onUpdate: (u: { role?: UserRole; marcas?: string[] }) => void
 }) {
   const [marcas, setMarcas] = useState(profile.marcas)
@@ -69,12 +85,18 @@ function UsuarioRow({
     )
   }
 
+  const hasChanges = role !== profile.role || JSON.stringify(marcas.sort()) !== JSON.stringify([...profile.marcas].sort())
+
   return (
-    <tr className="hover:bg-gray-50 transition">
+    <tr className="hover:bg-gray-50 transition align-top">
       <td className="px-5 py-4">
         <div className="flex items-center gap-3">
-          {profile.avatar_url && (
+          {profile.avatar_url ? (
             <img src={profile.avatar_url} className="w-8 h-8 rounded-full shrink-0" alt="" />
+          ) : (
+            <div className="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center shrink-0">
+              <span className="text-brand-600 font-bold text-xs">{(profile.nome ?? profile.email ?? '?').charAt(0).toUpperCase()}</span>
+            </div>
           )}
           <div>
             <p className="font-medium text-gray-900">{profile.nome ?? '—'}</p>
@@ -124,13 +146,30 @@ function UsuarioRow({
       </td>
 
       <td className="px-5 py-4 text-right">
-        <button
-          onClick={() => onUpdate({ role, marcas: isAdmin ? [] : marcas })}
-          disabled={saving}
-          className="text-xs px-4 py-2 bg-brand-500 text-white rounded-lg hover:bg-brand-600 disabled:opacity-50 transition font-medium"
-        >
-          {saving ? 'Salvando...' : 'Salvar'}
-        </button>
+        <div className="flex flex-col items-end gap-1.5">
+          <button
+            onClick={() => onUpdate({ role, marcas: isAdmin ? [] : marcas })}
+            disabled={saving || !hasChanges}
+            className={clsx(
+              'text-xs px-4 py-2 rounded-lg font-medium transition',
+              hasChanges && !saving
+                ? 'bg-brand-500 text-white hover:bg-brand-600'
+                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+            )}
+          >
+            {saving ? 'Salvando...' : 'Salvar'}
+          </button>
+          {saved && (
+            <span className="flex items-center gap-1 text-xs text-green-600 font-medium">
+              <CheckCircle2 className="w-3 h-3" /> Salvo
+            </span>
+          )}
+          {error && (
+            <span className="flex items-center gap-1 text-xs text-red-600 max-w-32 text-right">
+              <AlertTriangle className="w-3 h-3 shrink-0" /> {error}
+            </span>
+          )}
+        </div>
       </td>
     </tr>
   )

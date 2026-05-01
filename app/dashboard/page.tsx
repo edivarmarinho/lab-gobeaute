@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { getProfile } from '@/lib/supabase/get-profile'
 import {
   FlaskConical, Package, Users, FolderKanban, FileText,
@@ -10,7 +10,7 @@ import {
 // ─── Dados ────────────────────────────────────────────────────────────────────
 
 async function getLabStats() {
-  const supabase = createClient()
+  const supabase = createAdminClient()
   const [mps, fornecedores, projetos, documentos, crm, formulas] = await Promise.all([
     supabase.from('mps').select('id, homolog, origem_natural', { count: 'exact' }),
     supabase.from('fornecedores').select('id, status, iso22716, avaliacao_geral'),
@@ -32,7 +32,7 @@ async function getLabStats() {
 }
 
 async function getProjetosAtivos() {
-  const supabase = createClient()
+  const supabase = createAdminClient()
   const { data } = await supabase
     .from('pd_projetos')
     .select('*')
@@ -43,7 +43,7 @@ async function getProjetosAtivos() {
 }
 
 async function getAlertaDocumentos() {
-  const supabase = createClient()
+  const supabase = createAdminClient()
   const hoje = new Date()
   const em60dias = new Date(hoje.getTime() + 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   const { data } = await supabase
@@ -57,7 +57,7 @@ async function getAlertaDocumentos() {
 }
 
 async function getCRMRecente() {
-  const supabase = createClient()
+  const supabase = createAdminClient()
   const { data } = await supabase
     .from('fornecedor_crm')
     .select('id, tipo, titulo, data_evento, fornecedor_id, fornecedores(nome)')

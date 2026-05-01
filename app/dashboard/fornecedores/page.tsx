@@ -1,9 +1,9 @@
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { getProfile } from '@/lib/supabase/get-profile'
 import FornecedoresClient from './FornecedoresClient'
 
 export default async function FornecedoresPage() {
-  const supabase = createClient()
+  const supabase = createAdminClient()
   const profile = await getProfile()
   const canEdit = profile?.role === 'admin' || profile?.role === 'pd'
 

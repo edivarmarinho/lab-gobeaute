@@ -1,10 +1,10 @@
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { getProfile } from '@/lib/supabase/get-profile'
 import KanbanBoard from './KanbanBoard'
 import HomologBoard from './HomologBoard'
 
 export default async function ProjetosPage() {
-  const supabase = createClient()
+  const supabase = createAdminClient()
   const profile = await getProfile()
   const canEdit = profile?.role === 'admin' || profile?.role === 'pd'
 

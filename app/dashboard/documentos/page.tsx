@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { FileText } from 'lucide-react'
 
 const statusColor: Record<string, string> = {
@@ -10,7 +10,7 @@ const statusColor: Record<string, string> = {
 }
 
 export default async function DocumentosPage() {
-  const supabase = createClient()
+  const supabase = createAdminClient()
   const { data: documentos } = await supabase
     .from('documentos')
     .select('*')

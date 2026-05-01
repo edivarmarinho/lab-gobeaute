@@ -3,8 +3,9 @@
 import { useState, useMemo } from 'react'
 import {
   Beaker, Plus, X, Search, ChevronDown, ChevronUp,
-  ExternalLink, FlaskConical, History, Save, Loader2, Package
+  ExternalLink, FlaskConical, History, Save, Loader2, Package, Download
 } from 'lucide-react'
+import { exportToCsv } from '@/lib/export-csv'
 import { clsx } from 'clsx'
 import { MARCAS_DISPONIVEIS } from '@/lib/types'
 
@@ -396,9 +397,27 @@ export default function FormulasClient({
         <Beaker className="w-6 h-6 text-teal-500" />
         <h1 className="text-xl font-bold text-gray-900">Fórmulas</h1>
         <span className="text-sm text-gray-400">{filtered.length} de {formulas.length}</span>
+        <button
+          onClick={() => exportToCsv('formulas', filtered.map(f => ({
+            Código: f.codigo,
+            Versão: f.versao,
+            Produto: f.produto,
+            Marca: f.marca,
+            Tipo: f.tipo,
+            Categoria: f.categoria ?? '',
+            Status: f.status,
+            MPs: f.formula_ingredientes?.length ?? f.n_mps,
+            Responsável: f.responsavel ?? '',
+          })))}
+          className="ml-auto flex items-center gap-1.5 px-2.5 py-2 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-100 border border-gray-200 transition"
+          title="Exportar CSV"
+        >
+          <Download className="w-4 h-4" />
+          <span className="hidden sm:inline">Exportar</span>
+        </button>
         {canEdit && (
           <button onClick={() => { setModalFormula(null); setModalOpen(true) }}
-            className="ml-auto flex items-center gap-1.5 px-2.5 py-2 md:px-3 bg-teal-500 text-white text-sm font-medium rounded-lg hover:bg-teal-600 transition">
+            className="flex items-center gap-1.5 px-2.5 py-2 md:px-3 bg-teal-500 text-white text-sm font-medium rounded-lg hover:bg-teal-600 transition">
             <Plus className="w-4 h-4" />
             <span className="hidden sm:inline">Nova Fórmula</span>
           </button>

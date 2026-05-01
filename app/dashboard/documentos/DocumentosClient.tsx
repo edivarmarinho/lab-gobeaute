@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { FileText, Search, ExternalLink, AlertTriangle, CheckCircle2, Clock } from 'lucide-react'
+import { FileText, Search, ExternalLink, AlertTriangle, CheckCircle2, Clock, Download } from 'lucide-react'
 import { clsx } from 'clsx'
+import { exportToCsv } from '@/lib/export-csv'
 
 type Doc = {
   id: string
@@ -73,7 +74,7 @@ export default function DocumentosClient({ documentos }: { documentos: Doc[] }) 
         </div>
       )}
 
-      {/* Filtros */}
+      {/* Filtros + Export */}
       <div className="flex flex-wrap gap-3 mb-4">
         <div className="relative flex-1 min-w-48">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
@@ -101,6 +102,21 @@ export default function DocumentosClient({ documentos }: { documentos: Doc[] }) 
           {['Aprovado', 'Em Revisão', 'Pendente', 'Vencido', 'Rejeitado'].map(s => <option key={s}>{s}</option>)}
         </select>
         <span className="text-xs text-gray-400 self-center">{filtered.length} de {documentos.length}</span>
+        <button
+          onClick={() => exportToCsv('documentos', filtered.map(d => ({
+            Nome: d.nome,
+            Tipo: d.tipo ?? '',
+            'Código MP': d.mp_codigo ?? '',
+            Fornecedor: d.fornecedor_nome ?? '',
+            Status: d.status ?? '',
+            Validade: d.data_validade ?? '',
+          })))}
+          className="flex items-center gap-1.5 px-2.5 py-2 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-100 border border-gray-200 transition"
+          title="Exportar CSV"
+        >
+          <Download className="w-4 h-4" />
+          <span className="hidden sm:inline">Exportar</span>
+        </button>
       </div>
 
       {/* Tabela */}

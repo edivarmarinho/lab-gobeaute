@@ -3,10 +3,12 @@
 import { useState, useMemo } from 'react'
 import {
   Package, Plus, X, Search, Filter, ChevronDown, ChevronUp,
-  Leaf, FlaskConical, ShieldCheck, AlertTriangle, Telescope,
+  Leaf, FlaskConical, ShieldCheck, AlertTriangle, Telescope, Download,
+  GitCompareArrows,
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { MARCAS_DISPONIVEIS } from '@/lib/types'
+import { exportToCsv } from '@/lib/export-csv'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -386,41 +388,179 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-// ─── Gaps Modal ───────────────────────────────────────────────────────────────
+// ─── Comparativo Modal ────────────────────────────────────────────────────────
 
-function GapsModal({ mps, onClose, onCadastrar }: { mps: MP[]; onClose: () => void; onCadastrar: (codigo: string) => void }) {
-  const gaps = useMemo(() => {
-    const codigos = new Set(mps.map(m => m.codigo.toUpperCase()))
-    const result: string[] = []
-    const nums = mps
-      .map(m => parseInt(m.codigo.replace(/\D/g, ''), 10))
-      .filter(n => !isNaN(n))
-    if (nums.length === 0) return result
-    const min = Math.min(...nums)
-    const max = Math.max(...nums)
-    for (let i = min; i <= max; i++) {
-      const padded = `MP${String(i).padStart(4, '0')}`
-      if (!codigos.has(padded)) result.push(padded)
-    }
-    return result.slice(0, 100)
-  }, [mps])
+function ComparativoModal({ mp, onClose }: { mp: MP; onClose: () => void }) {
+  const homologado = {
+    label: 'Homologado',
+    forn: mp.forn_candidato ? '(atual)' : '—',
+    preco: mp.preco_ref_usd,
+    homolog: mp.homolog,
+    anvisa: mp.anvisa,
+    iso22716: mp.iso_conformidade === 'ISO 22716' || false,
+    vegano: mp.vegano,
+    cf: mp.cf,
+    natural: mp.origem_natural,
+  }
+
+  type Row = { label: string; home: React.ReactNode; cand: React.ReactNode; delta?: 'better' | 'worse' | 'equal' }
+
+  const rows: Row[] = [
+    {
+      label: 'Fornecedor',
+      home: <span className="font-medium text-gray-800">{mp.forn_candidato ?? '—'}</span>,
+      cand: <span className="text-gray-400 italic">Preencher ao avaliar</span>,
+    },
+    {
+      label: 'Preço ref. (USD/kg)',
+      home: mp.preco_ref_usd ? <span className="font-mono font-medium text-gray-800">${Number(mp.preco_ref_usd).toFixed(2)}</span> : <span className="text-gray-400">—</span>,
+      cand: <span className="text-gray-400 italic">A cotar</span>,
+    },
+    {
+      label: 'Status ANVISA',
+      home: <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${anvisaColor[mp.anvisa] ?? 'bg-gray-100'}`}>{mp.anvisa}</span>,
+      cand: <span className="text-gray-400 italic">Verificar</span>,
+    },
+    {
+      label: 'Homologação',
+      home: <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${homologColor[mp.homolog] ?? 'bg-gray-100'}`}>{mp.homolog}</span>,
+      cand: <span className="text-gray-400 italic">Em avaliação</span>,
+    },
+    {
+      label: 'Vegano',
+      home: mp.vegano ? <span className="text-green-600 font-medium">✓ Sim</span> : <span className="text-gray-400">Não</span>,
+      cand: <span className="text-gray-400 italic">Verificar</span>,
+    },
+    {
+      label: 'Cruelty-Free',
+      home: mp.cf ? <span className="text-green-600 font-medium">✓ Sim</span> : <span className="text-gray-400">Não</span>,
+      cand: <span className="text-gray-400 italic">Verificar</span>,
+    },
+    {
+      label: 'Origem Natural',
+      home: mp.origem_natural ? <span className="text-green-600 font-medium">✓ Sim</span> : <span className="text-gray-400">Não</span>,
+      cand: <span className="text-gray-400 italic">Verificar</span>,
+    },
+  ]
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col max-h-[80vh]">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col">
         <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100">
-          <Telescope className="w-5 h-5 text-purple-500" />
+          <GitCompareArrows className="w-5 h-5 text-indigo-500" />
           <div>
-            <h2 className="font-bold text-gray-900">Gaps na Sequência de MPs</h2>
-            <p className="text-xs text-gray-400">{gaps.length} código{gaps.length !== 1 ? 's' : ''} faltando</p>
+            <h2 className="font-bold text-gray-900">Comparativo de Fornecedores</h2>
+            <p className="text-xs text-gray-400">{mp.codigo} — {mp.nome}</p>
           </div>
           <button onClick={onClose} className="ml-auto p-1.5 hover:bg-gray-100 rounded-lg">
             <X className="w-4 h-4 text-gray-500" />
           </button>
         </div>
+
+        <div className="flex-1 overflow-y-auto">
+          {/* Cabeçalho das colunas */}
+          <div className="grid grid-cols-3 gap-0 border-b border-gray-100">
+            <div className="px-6 py-3 bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wide">Critério</div>
+            <div className="px-6 py-3 bg-green-50 text-xs font-semibold text-green-700 uppercase tracking-wide border-l border-gray-100">
+              Atual / Homologado
+            </div>
+            <div className="px-6 py-3 bg-indigo-50 text-xs font-semibold text-indigo-700 uppercase tracking-wide border-l border-gray-100">
+              Candidato
+            </div>
+          </div>
+
+          {/* Linhas */}
+          {rows.map((row, i) => (
+            <div key={i} className="grid grid-cols-3 gap-0 border-b border-gray-50 last:border-0">
+              <div className="px-6 py-3 text-xs text-gray-500 font-medium bg-gray-50 flex items-center">{row.label}</div>
+              <div className="px-6 py-3 text-xs border-l border-gray-100 flex items-center">{row.home}</div>
+              <div className="px-6 py-3 text-xs border-l border-gray-100 flex items-center">{row.cand}</div>
+            </div>
+          ))}
+
+          {/* Seção de justificativa */}
+          <div className="px-6 py-4 bg-amber-50 border-t border-amber-100">
+            <p className="text-xs font-semibold text-amber-700 mb-2">Justificativa P&D para troca de fornecedor</p>
+            <textarea
+              rows={3}
+              placeholder="Descreva o motivo da troca: preço, qualidade, prazo, risco de abastecimento..."
+              className="w-full text-xs border border-amber-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white resize-none"
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-2xl">
+          <p className="text-xs text-gray-400">Preencha os dados do candidato ao editar a MP.</p>
+          <button onClick={onClose} className="text-sm px-4 py-2 text-gray-500 hover:text-gray-700 transition">Fechar</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Gaps Modal ───────────────────────────────────────────────────────────────
+
+function GapsModal({ mps, onClose, onCadastrar }: { mps: MP[]; onClose: () => void; onCadastrar: (codigo: string) => void }) {
+  const { gaps, min, max, cobertura } = useMemo(() => {
+    const codigos = new Set(mps.map(m => m.codigo.toUpperCase()))
+    const result: string[] = []
+    const nums = mps
+      .map(m => parseInt(m.codigo.replace(/\D/g, ''), 10))
+      .filter(n => !isNaN(n))
+    if (nums.length === 0) return { gaps: result, min: 0, max: 0, cobertura: 0 }
+    const minN = Math.min(...nums)
+    const maxN = Math.max(...nums)
+    const total = maxN - minN + 1
+    for (let i = minN; i <= maxN; i++) {
+      const padded = `MP${String(i).padStart(4, '0')}`
+      if (!codigos.has(padded)) result.push(padded)
+    }
+    return { gaps: result, min: minN, max: maxN, cobertura: Math.round(((total - result.length) / total) * 100) }
+  }, [mps])
+
+  function handleExport() {
+    exportToCsv('gaps-mps', gaps.map(codigo => ({ Código: codigo, Status: 'Faltando' })))
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col max-h-[85vh]">
+        <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100">
+          <Telescope className="w-5 h-5 text-purple-500" />
+          <div>
+            <h2 className="font-bold text-gray-900">Gaps na Sequência de MPs</h2>
+            <p className="text-xs text-gray-400">
+              {gaps.length} código{gaps.length !== 1 ? 's' : ''} faltando · {cobertura}% de cobertura
+            </p>
+          </div>
+          <button onClick={onClose} className="ml-auto p-1.5 hover:bg-gray-100 rounded-lg">
+            <X className="w-4 h-4 text-gray-500" />
+          </button>
+        </div>
+
+        {/* Stats */}
+        <div className="px-6 py-3 bg-purple-50 border-b border-purple-100 grid grid-cols-3 gap-3 text-center">
+          <div>
+            <p className="text-lg font-bold text-purple-700">{mps.length}</p>
+            <p className="text-xs text-purple-500">Cadastradas</p>
+          </div>
+          <div>
+            <p className="text-lg font-bold text-red-600">{gaps.length}</p>
+            <p className="text-xs text-red-400">Faltando</p>
+          </div>
+          <div>
+            <p className="text-lg font-bold text-emerald-600">{cobertura}%</p>
+            <p className="text-xs text-emerald-500">Cobertura</p>
+          </div>
+        </div>
+
         <div className="flex-1 overflow-y-auto px-6 py-4">
           {gaps.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-8">Sequência contínua — nenhum gap!</p>
+            <div className="text-center py-8">
+              <ShieldCheck className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
+              <p className="text-sm text-gray-500 font-medium">Sequência contínua!</p>
+              <p className="text-xs text-gray-400 mt-1">Nenhum gap de {`MP${String(min).padStart(4, '0')}`} a {`MP${String(max).padStart(4, '0')}`}.</p>
+            </div>
           ) : (
             <div className="space-y-1.5">
               {gaps.map(codigo => (
@@ -434,13 +574,22 @@ function GapsModal({ mps, onClose, onCadastrar }: { mps: MP[]; onClose: () => vo
                   </button>
                 </div>
               ))}
-              {gaps.length === 100 && (
+              {gaps.length >= 100 && (
                 <p className="text-xs text-gray-400 text-center pt-2">Mostrando os primeiros 100 gaps.</p>
               )}
             </div>
           )}
         </div>
-        <div className="flex justify-end px-6 py-3 border-t border-gray-100 bg-gray-50 rounded-b-2xl">
+
+        <div className="flex items-center justify-between px-6 py-3 border-t border-gray-100 bg-gray-50 rounded-b-2xl">
+          {gaps.length > 0 ? (
+            <button
+              onClick={handleExport}
+              className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-gray-800 px-3 py-1.5 border border-gray-200 rounded-lg hover:bg-white transition"
+            >
+              <Download className="w-3.5 h-3.5" /> Exportar CSV
+            </button>
+          ) : <span />}
           <button onClick={onClose} className="text-sm px-4 py-2 text-gray-500 hover:text-gray-700">Fechar</button>
         </div>
       </div>
@@ -459,6 +608,7 @@ export default function MPsClient({ mps: initialMps, canEdit }: { mps: MP[]; can
   const [modalOpen, setModalOpen] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [gapsOpen, setGapsOpen] = useState(false)
+  const [comparativoMp, setComparativoMp] = useState<MP | null>(null)
 
   const filtered = useMemo(() => {
     return mps.filter(mp => {
@@ -507,6 +657,12 @@ export default function MPsClient({ mps: initialMps, canEdit }: { mps: MP[]; can
           onCadastrar={openWithCode}
         />
       )}
+      {comparativoMp && (
+        <ComparativoModal
+          mp={comparativoMp}
+          onClose={() => setComparativoMp(null)}
+        />
+      )}
 
       {/* Header */}
       <div className="flex items-center gap-2 mb-5 flex-wrap">
@@ -520,6 +676,27 @@ export default function MPsClient({ mps: initialMps, canEdit }: { mps: MP[]; can
           >
             <Telescope className="w-3.5 h-3.5 md:w-4 md:h-4" />
             <span className="hidden sm:inline">Ver Gaps</span>
+          </button>
+          <button
+            onClick={() => exportToCsv('mps', filtered.map(mp => ({
+              Código: mp.codigo,
+              Nome: mp.nome,
+              INCI: mp.inci ?? '',
+              CAS: mp.cas ?? '',
+              Categoria: mp.categoria ?? '',
+              ANVISA: mp.anvisa,
+              Homologação: mp.homolog,
+              Vegano: mp.vegano ? 'Sim' : 'Não',
+              'Cruelty-Free': mp.cf ? 'Sim' : 'Não',
+              'Origem Natural': mp.origem_natural ? 'Sim' : 'Não',
+              'USD/kg': mp.preco_ref_usd ?? '',
+              'Forn. Candidato': mp.forn_candidato ?? '',
+            })))}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-gray-600 text-xs md:text-sm font-medium rounded-lg hover:bg-gray-100 border border-gray-200 transition"
+            title="Exportar CSV"
+          >
+            <Download className="w-3.5 h-3.5 md:w-4 md:h-4" />
+            <span className="hidden sm:inline">Exportar</span>
           </button>
           {canEdit && (
             <button
@@ -630,6 +807,14 @@ export default function MPsClient({ mps: initialMps, canEdit }: { mps: MP[]; can
                 {expandedId === mp.id && (
                   <tr key={`${mp.id}-detail`} className="bg-blue-50/30">
                     <td colSpan={canEdit ? 9 : 8} className="px-8 py-4">
+                      <div className="flex justify-end mb-3">
+                        <button
+                          onClick={e => { e.stopPropagation(); setComparativoMp(mp) }}
+                          className="flex items-center gap-1.5 text-xs text-indigo-600 hover:text-indigo-700 font-medium px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 rounded-lg border border-indigo-100 transition"
+                        >
+                          <GitCompareArrows className="w-3.5 h-3.5" /> Comparar Fornecedores
+                        </button>
+                      </div>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
                         <div>
                           <p className="text-gray-400 font-medium mb-1">Atributos</p>

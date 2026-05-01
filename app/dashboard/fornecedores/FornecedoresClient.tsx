@@ -6,8 +6,9 @@ import {
   Package, FileWarning, Shield, ShieldOff, Phone, Globe, MessageCircle,
   Star, ExternalLink, Building2, Truck, Award, Edit3, Save, X,
   Mail, Linkedin, Clock, BadgeCheck, Info, BarChart3, ChevronRight,
-  Plus, Loader2, GitBranch, FileCheck, CheckCheck
+  Plus, Loader2, GitBranch, FileCheck, CheckCheck, Download
 } from 'lucide-react'
+import { exportToCsv } from '@/lib/export-csv'
 import { clsx } from 'clsx'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -1334,10 +1335,32 @@ export default function FornecedoresClient({ fornecedores, crm, contatos, canEdi
         <Users className="w-6 h-6 text-emerald-500" />
         <h1 className="text-xl font-bold text-gray-900">Fornecedores</h1>
         <span className="text-sm text-gray-400 ml-1">{localFornecedores.length} cadastrados</span>
+        <button
+          onClick={() => exportToCsv('fornecedores', localFornecedores.map(f => ({
+            Nome: f.nome,
+            UF: f.uf,
+            CNPJ: f.cnpj ?? '',
+            Status: f.status,
+            'ISO 22716': f.iso22716 ? 'Sim' : 'Não',
+            'ISO 9001': f.iso9001 ? 'Sim' : 'Não',
+            'MPs Ativas': f.mps_ativas,
+            Pendências: f.pendencias,
+            Categoria: f.categoria_fornecedor ?? '',
+            Porte: f.porte ?? '',
+            Avaliação: f.avaliacao_geral ?? '',
+            'Prazo Entrega (dias)': f.prazo_entrega_dias ?? '',
+            'Condição Pgto': f.condicao_pagamento ?? '',
+          })))}
+          className="ml-auto flex items-center gap-1.5 px-2.5 py-2 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-100 border border-gray-200 transition"
+          title="Exportar CSV"
+        >
+          <Download className="w-4 h-4" />
+          <span className="hidden sm:inline">Exportar</span>
+        </button>
         {canEdit && (
           <button
             onClick={() => setNovoModal(true)}
-            className="ml-auto flex items-center gap-1.5 px-2.5 py-2 md:px-3 bg-emerald-500 text-white text-sm font-medium rounded-lg hover:bg-emerald-600 transition"
+            className="flex items-center gap-1.5 px-2.5 py-2 md:px-3 bg-emerald-500 text-white text-sm font-medium rounded-lg hover:bg-emerald-600 transition"
           >
             <Plus className="w-4 h-4" />
             <span className="hidden sm:inline">Novo Fornecedor</span>

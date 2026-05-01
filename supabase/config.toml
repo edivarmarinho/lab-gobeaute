@@ -1,0 +1,5 @@
+[project]
+id = "lab-gobeaute"
+
+[functions.notificar-docs-vencendo]
+verify_jwt = false

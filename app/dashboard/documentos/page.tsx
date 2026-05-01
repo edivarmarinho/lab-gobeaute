@@ -1,5 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getProfile } from '@/lib/supabase/get-profile'
 import { FileText } from 'lucide-react'
+import DriveSyncPanel from './DriveSyncPanel'
 
 const statusColor: Record<string, string> = {
   'Aprovado':    'bg-green-100 text-green-700',
@@ -11,6 +13,9 @@ const statusColor: Record<string, string> = {
 
 export default async function DocumentosPage() {
   const supabase = createAdminClient()
+  const profile = await getProfile()
+  const canSync = profile?.role === 'admin' || profile?.role === 'pd'
+
   const { data: documentos } = await supabase
     .from('documentos')
     .select('*')
@@ -18,17 +23,24 @@ export default async function DocumentosPage() {
 
   return (
     <div className="p-8 max-w-7xl mx-auto">
-      <div className="flex items-center gap-3 mb-6">
+      <div className="flex items-center gap-3 mb-4">
         <FileText className="w-6 h-6 text-orange-500" />
         <h1 className="text-xl font-bold text-gray-900">Documentos</h1>
         <span className="ml-auto text-sm text-gray-400">{documentos?.length ?? 0} documentos</span>
+      </div>
+
+      {/* Painel de sync com Google Drive */}
+      <div className="mb-5">
+        <DriveSyncPanel canSync={canSync} />
       </div>
 
       {documentos?.length === 0 ? (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
           <FileText className="w-10 h-10 text-gray-300 mx-auto mb-3" />
           <p className="text-gray-500 font-medium">Nenhum documento ainda</p>
-          <p className="text-sm text-gray-400 mt-1">Configure o Google Drive Sync para importar documentos automaticamente.</p>
+          <p className="text-sm text-gray-400 mt-1">
+            Configure o Google Drive Sync para importar documentos automaticamente.
+          </p>
         </div>
       ) : (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">

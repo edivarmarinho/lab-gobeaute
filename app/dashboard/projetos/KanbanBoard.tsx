@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { FolderKanban, Plus, ChevronRight, FlaskConical } from 'lucide-react'
+import { FolderKanban, Plus, ChevronRight, FlaskConical, X, Loader2 } from 'lucide-react'
 import { clsx } from 'clsx'
+import { MARCAS_DISPONIVEIS } from '@/lib/types'
 
 const ETAPAS = [
   'Briefing/Conceito',
@@ -42,8 +43,107 @@ const STATUS_COLOR: Record<string, string> = {
   'Concluído':             'bg-emerald-100 text-emerald-700',
 }
 
-export default function KanbanBoard({ projetos, canEdit }: { projetos: any[]; canEdit: boolean }) {
+function NovoProjetoModal({ onClose, onCreated }: { onClose: () => void; onCreated: (p: any) => void }) {
+  const [form, setForm] = useState({
+    codigo: '', nome: '', marca: '', tipo: 'Cosmético',
+    etapa: 'Briefing/Conceito', responsavel: 'Patrícia',
+    data_inicio: new Date().toISOString().split('T')[0],
+    status: 'Em andamento', briefing: '',
+  })
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  function f(k: string, v: string) { setForm(prev => ({ ...prev, [k]: v })) }
+
+  async function handleCreate() {
+    if (!form.codigo.trim() || !form.nome.trim() || !form.marca) {
+      setError('Código, nome e marca são obrigatórios'); return
+    }
+    setSaving(true); setError(null)
+    try {
+      const res = await fetch('/api/projetos', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? 'Erro ao criar')
+      onCreated(json.projeto)
+    } catch (e: any) { setError(e.message); setSaving(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col">
+        <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100">
+          <FolderKanban className="w-5 h-5 text-purple-500" />
+          <h2 className="font-bold text-gray-900">Novo Projeto P&D</h2>
+          <button onClick={onClose} className="ml-auto p-1.5 hover:bg-gray-100 rounded-lg"><X className="w-4 h-4 text-gray-500" /></button>
+        </div>
+        <div className="px-6 py-4 space-y-4 overflow-y-auto">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-gray-500 block mb-1">Código *</label>
+              <input className="input" value={form.codigo} onChange={e => f('codigo', e.target.value)} placeholder="PD-009" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-500 block mb-1">Tipo</label>
+              <select className="input" value={form.tipo} onChange={e => f('tipo', e.target.value)}>
+                <option>Cosmético</option><option>Suplemento</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-500 block mb-1">Nome do Projeto *</label>
+            <input className="input" value={form.nome} onChange={e => f('nome', e.target.value)} placeholder="Ex: Sérum Vitamina C — Kokeshi" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-gray-500 block mb-1">Marca *</label>
+              <select className="input" value={form.marca} onChange={e => f('marca', e.target.value)}>
+                <option value="">— selecione —</option>
+                {MARCAS_DISPONIVEIS.map(m => <option key={m}>{m}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-500 block mb-1">Etapa inicial</label>
+              <select className="input" value={form.etapa} onChange={e => f('etapa', e.target.value)}>
+                {ETAPAS.map(e => <option key={e}>{e}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-gray-500 block mb-1">Responsável</label>
+              <input className="input" value={form.responsavel} onChange={e => f('responsavel', e.target.value)} />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-500 block mb-1">Data de início</label>
+              <input className="input" type="date" value={form.data_inicio} onChange={e => f('data_inicio', e.target.value)} />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-500 block mb-1">Briefing</label>
+            <textarea className="input min-h-[80px] resize-none" value={form.briefing} onChange={e => f('briefing', e.target.value)} placeholder="Descreva o objetivo, público-alvo, claims desejados..." />
+          </div>
+        </div>
+        {error && <p className="px-6 py-2 text-xs text-red-600 bg-red-50 border-t border-red-100">{error}</p>}
+        <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-2xl">
+          <button onClick={onClose} className="text-sm px-4 py-2 text-gray-500 hover:text-gray-700">Cancelar</button>
+          <button onClick={handleCreate} disabled={saving}
+            className="flex items-center gap-2 text-sm px-5 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition disabled:opacity-50">
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+            Criar projeto
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default function KanbanBoard({ projetos: initialProjetos, canEdit }: { projetos: any[]; canEdit: boolean }) {
+  const [projetos, setProjetos] = useState<any[]>(initialProjetos)
   const [expanded, setExpanded] = useState<string | null>(null)
+  const [novoModal, setNovoModal] = useState(false)
 
   const byEtapa = ETAPAS.reduce<Record<string, any[]>>((acc, etapa) => {
     acc[etapa] = projetos.filter(p => p.etapa === etapa)
@@ -52,13 +152,20 @@ export default function KanbanBoard({ projetos, canEdit }: { projetos: any[]; ca
 
   return (
     <div>
+      {novoModal && (
+        <NovoProjetoModal
+          onClose={() => setNovoModal(false)}
+          onCreated={p => { setProjetos(prev => [p, ...prev]); setNovoModal(false) }}
+        />
+      )}
+
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <FolderKanban className="w-6 h-6 text-purple-500" />
         <h1 className="text-xl font-bold text-gray-900">Projetos P&D</h1>
         <span className="text-sm text-gray-400 ml-1">{projetos.length} projetos</span>
         {canEdit && (
-          <button className="ml-auto flex items-center gap-1.5 text-xs px-3 py-1.5 bg-brand-500 text-white rounded-lg hover:bg-brand-600 transition font-medium">
+          <button onClick={() => setNovoModal(true)} className="ml-auto flex items-center gap-1.5 text-xs px-3 py-1.5 bg-brand-500 text-white rounded-lg hover:bg-brand-600 transition font-medium">
             <Plus className="w-3.5 h-3.5" />
             Novo Projeto
           </button>

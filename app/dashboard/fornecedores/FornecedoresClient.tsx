@@ -796,6 +796,156 @@ function FornecedorCard({
   )
 }
 
+// ─── Formulário Novo Fornecedor ───────────────────────────────────────────────
+
+type NovoFornForm = {
+  nome: string
+  uf: string
+  cnpj: string
+  status: string
+  especialidade: string
+  categoria_fornecedor: string
+  porte: string
+  whatsapp: string
+  site: string
+  linkedin: string
+  iso22716: boolean
+  iso9001: boolean
+  descricao: string
+  observacoes: string
+}
+
+function NovoFornecedorModal({ onClose, onCreated }: { onClose: () => void; onCreated: (f: Fornecedor) => void }) {
+  const [form, setForm] = useState<NovoFornForm>({
+    nome: '', uf: 'SP', cnpj: '', status: 'Em Avaliação',
+    especialidade: '', categoria_fornecedor: '', porte: '',
+    whatsapp: '', site: '', linkedin: '',
+    iso22716: false, iso9001: false, descricao: '', observacoes: '',
+  })
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  function f(k: keyof NovoFornForm, v: any) {
+    setForm(prev => ({ ...prev, [k]: v }))
+  }
+
+  async function handleCreate() {
+    if (!form.nome.trim()) { setError('Nome é obrigatório'); return }
+    setSaving(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/fornecedores', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? 'Erro ao criar')
+      onCreated(json.fornecedor)
+    } catch (e: any) {
+      setError(e.message)
+      setSaving(false)
+    }
+  }
+
+  const UFS = ['AC','AL','AM','AP','BA','CE','DF','ES','GO','MA','MG','MS','MT','PA','PB','PE','PI','PR','RJ','RN','RO','RR','RS','SC','SE','SP','TO']
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] flex flex-col">
+        <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100">
+          <Plus className="w-5 h-5 text-emerald-500" />
+          <h2 className="font-bold text-gray-900">Novo Fornecedor</h2>
+          <button onClick={onClose} className="ml-auto p-1.5 hover:bg-gray-100 rounded-lg transition">
+            <X className="w-4 h-4 text-gray-500" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+          <div className="grid grid-cols-3 gap-3">
+            <div className="col-span-2">
+              <label className="text-xs font-medium text-gray-500 block mb-1">Nome *</label>
+              <input className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-300" value={form.nome} onChange={e => f('nome', e.target.value)} placeholder="Razão social ou nome comercial" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-500 block mb-1">UF</label>
+              <select className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-300" value={form.uf} onChange={e => f('uf', e.target.value)}>
+                {UFS.map(u => <option key={u}>{u}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-gray-500 block mb-1">CNPJ</label>
+              <input className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-300" value={form.cnpj} onChange={e => f('cnpj', e.target.value)} placeholder="00.000.000/0001-00" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-500 block mb-1">Status inicial</label>
+              <select className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-300" value={form.status} onChange={e => f('status', e.target.value)}>
+                <option>Em Avaliação</option>
+                <option>Homologado</option>
+                <option>Reprovado</option>
+                <option>Inativo</option>
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-gray-500 block mb-1">Categoria</label>
+              <select className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-300" value={form.categoria_fornecedor} onChange={e => f('categoria_fornecedor', e.target.value)}>
+                <option value="">— selecione —</option>
+                {Object.entries(CATEGORIA_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-500 block mb-1">Porte</label>
+              <select className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-300" value={form.porte} onChange={e => f('porte', e.target.value)}>
+                <option value="">— selecione —</option>
+                {Object.entries(PORTE_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-500 block mb-1">Especialidade / Portfolio</label>
+            <input className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-300" value={form.especialidade} onChange={e => f('especialidade', e.target.value)} placeholder="Ex: Ativos cosméticos, óleos vegetais..." />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-gray-500 block mb-1">WhatsApp</label>
+              <input className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-300" value={form.whatsapp} onChange={e => f('whatsapp', e.target.value)} placeholder="5511999990000" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-500 block mb-1">Site</label>
+              <input className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-300" value={form.site} onChange={e => f('site', e.target.value)} placeholder="https://..." />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-500 block mb-1">Observações</label>
+            <textarea rows={2} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-300 resize-none" value={form.observacoes} onChange={e => f('observacoes', e.target.value)} placeholder="Notas internas..." />
+          </div>
+          <div className="flex gap-4">
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input type="checkbox" className="rounded" checked={form.iso22716} onChange={e => f('iso22716', e.target.checked)} />
+              <Shield className="w-4 h-4 text-blue-500" /> ISO 22716
+            </label>
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input type="checkbox" className="rounded" checked={form.iso9001} onChange={e => f('iso9001', e.target.checked)} />
+              <Shield className="w-4 h-4 text-indigo-500" /> ISO 9001
+            </label>
+          </div>
+        </div>
+        {error && <p className="px-6 py-2 text-xs text-red-600 bg-red-50 border-t border-red-100">{error}</p>}
+        <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-2xl">
+          <button onClick={onClose} className="text-sm px-4 py-2 text-gray-500 hover:text-gray-700 transition">Cancelar</button>
+          <button onClick={handleCreate} disabled={saving} className="flex items-center gap-2 text-sm px-5 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition disabled:opacity-50">
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+            Cadastrar fornecedor
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Componente Principal ─────────────────────────────────────────────────────
 
 export default function FornecedoresClient({ fornecedores, crm, contatos, canEdit }: {
@@ -810,6 +960,7 @@ export default function FornecedoresClient({ fornecedores, crm, contatos, canEdi
   const [filterCategoria, setFilterCategoria] = useState<string>('todos')
   const [expanded, setExpanded] = useState<string | null>(null)
   const [editing, setEditing] = useState<string | null>(null)
+  const [novoModal, setNovoModal] = useState(false)
   const [localFornecedores, setLocalFornecedores] = useState(fornecedores)
   const [localContatos, setLocalContatos] = useState(contatos)
 
@@ -875,6 +1026,14 @@ export default function FornecedoresClient({ fornecedores, crm, contatos, canEdi
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
+      {/* Modal de novo fornecedor */}
+      {novoModal && (
+        <NovoFornecedorModal
+          onClose={() => setNovoModal(false)}
+          onCreated={f => { setLocalFornecedores(prev => [f, ...prev]); setNovoModal(false) }}
+        />
+      )}
+
       {/* Modal de edição */}
       {editingFornecedor && (
         <EditForm
@@ -890,6 +1049,15 @@ export default function FornecedoresClient({ fornecedores, crm, contatos, canEdi
         <Users className="w-6 h-6 text-emerald-500" />
         <h1 className="text-xl font-bold text-gray-900">Fornecedores</h1>
         <span className="text-sm text-gray-400 ml-1">{localFornecedores.length} cadastrados</span>
+        {canEdit && (
+          <button
+            onClick={() => setNovoModal(true)}
+            className="ml-auto flex items-center gap-1.5 px-3 py-2 bg-emerald-500 text-white text-sm font-medium rounded-lg hover:bg-emerald-600 transition"
+          >
+            <Plus className="w-4 h-4" />
+            Novo Fornecedor
+          </button>
+        )}
       </div>
 
       {/* KPIs */}

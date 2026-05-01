@@ -4,21 +4,29 @@ import {
   FlaskConical, Package, Users, FolderKanban, FileText,
   AlertTriangle, Clock, CheckCircle2, TrendingUp, Activity,
   Shield, Beaker, Microscope, ChevronRight, FileWarning,
-  BarChart3, Zap, Leaf, Star, ArrowUpRight
+  BarChart3, Zap, Leaf, Star, ArrowUpRight, Target
 } from 'lucide-react'
 
 // ─── Dados ────────────────────────────────────────────────────────────────────
 
 async function getLabStats() {
   const supabase = createAdminClient()
-  const [mps, fornecedores, projetos, documentos, crm, formulas] = await Promise.all([
+  const [mps, fornecedores, projetos, documentos, crm, formulas, produtosAtivos] = await Promise.all([
     supabase.from('mps').select('id, homolog, origem_natural', { count: 'exact' }),
     supabase.from('fornecedores').select('id, status, iso22716, avaliacao_geral'),
     supabase.from('pd_projetos').select('id, etapa, status, marca'),
     supabase.from('documentos').select('id, tipo, validade'),
     supabase.from('fornecedor_crm').select('id, tipo, data_evento').order('data_evento', { ascending: false }).limit(8),
     supabase.from('formulas').select('id, nome, status', { count: 'exact' }),
+    supabase.from('produtos').select('id', { count: 'exact', head: true }).eq('status', 'Ativo'),
   ])
+
+  // Cobertura de fórmulas: produtos ativos que têm fórmula com status real (não "Importada BID")
+  const { count: formulasReais } = await supabase
+    .from('formulas')
+    .select('id', { count: 'exact', head: true })
+    .neq('status', 'Importada BID')
+
   return {
     mps: mps.data ?? [],
     fornecedores: fornecedores.data ?? [],
@@ -28,6 +36,8 @@ async function getLabStats() {
     formulas: formulas.data ?? [],
     mpsCount: mps.count ?? 0,
     formulasCount: formulas.count ?? 0,
+    produtosAtivos: produtosAtivos.count ?? 0,
+    formulasReais: formulasReais ?? 0,
   }
 }
 
@@ -105,7 +115,8 @@ export default async function DashboardPage() {
     getProfile(),
   ])
 
-  const { mps, fornecedores, projetos, mpsCount, formulasCount } = stats
+  const { mps, fornecedores, projetos, mpsCount, formulasCount, produtosAtivos, formulasReais } = stats
+  const coberturaPct = produtosAtivos > 0 ? Math.round((formulasReais / produtosAtivos) * 100) : 0
 
   // KPIs calculados
   const homologadas = mps.filter((m: any) => m.homolog === 'Homologada').length
@@ -233,6 +244,43 @@ export default async function DashboardPage() {
             <p className="text-xs text-gray-400 mt-0.5">{kpi.sub}</p>
           </a>
         ))}
+      </div>
+
+      {/* ── Banner: Cobertura de Fórmulas ── */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 md:p-5">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 bg-teal-50 rounded-lg flex items-center justify-center shrink-0">
+              <Target className="w-4 h-4 text-teal-600" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gray-900">Cobertura de Fórmulas</p>
+              <p className="text-xs text-gray-400">Meta: 100% dos SKUs ativos com fórmula documentada</p>
+            </div>
+          </div>
+          <div className="flex-1 flex items-center gap-4 sm:justify-end">
+            <div className="text-right">
+              <p className="text-2xl font-bold text-gray-900">{produtosAtivos.toLocaleString('pt-BR')}</p>
+              <p className="text-xs text-gray-400">SKUs ativos</p>
+            </div>
+            <div className="w-px h-10 bg-gray-100" />
+            <div className="text-right">
+              <p className={`text-2xl font-bold ${coberturaPct >= 80 ? 'text-green-600' : coberturaPct >= 40 ? 'text-yellow-600' : 'text-red-500'}`}>
+                {coberturaPct}%
+              </p>
+              <p className="text-xs text-gray-400">com fórmula</p>
+            </div>
+            <div className="flex-1 max-w-xs hidden sm:block">
+              <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${coberturaPct >= 80 ? 'bg-green-400' : coberturaPct >= 40 ? 'bg-yellow-400' : 'bg-red-400'}`}
+                  style={{ width: `${Math.min(coberturaPct, 100)}%` }}
+                />
+              </div>
+              <p className="text-xs text-gray-400 mt-1">{formulasReais} fórmulas documentadas de {produtosAtivos} SKUs ativos</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* ── Linha 2: Pipeline + CRM ── */}

@@ -260,3 +260,46 @@ create policy "escrita service_role" on fornecedor_crm
   for all using (auth.role() = 'service_role');
 create policy "escrita service_role" on drive_sync_log
   for all using (auth.role() = 'service_role');
+
+-- =============================================================================
+-- ATUALIZAÇÃO 2026-05-01 — Tabelas de Produtos e De-Para + fix de constraint
+-- =============================================================================
+
+-- Adicionado 'Importada BID' ao check constraint de formulas.status
+-- ALTER TABLE formulas DROP CONSTRAINT IF EXISTS formulas_status_check;
+-- ALTER TABLE formulas ADD CONSTRAINT formulas_status_check
+--   CHECK (status IN ('Em Desenvolvimento','Aprovada Internamente','Em Estabilidade','Aprovada QA','Arquivada','Importada BID'));
+
+-- ── Tabela de Produtos (fonte de verdade: Google Sheets 1Ma2ynNyv0nNzLU58lVq0R9LKwEGbYr2Pkrbq3V5GB94)
+CREATE TABLE IF NOT EXISTS produtos (
+  id          uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  sku         text NOT NULL UNIQUE,
+  sku_tiny    text,
+  sku_prot    text,
+  marca       text NOT NULL,
+  descricao   text NOT NULL,
+  status      text NOT NULL DEFAULT 'Ativo',
+  pmv         numeric(12,2),
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  updated_at  timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_produtos_sku   ON produtos(sku);
+CREATE INDEX IF NOT EXISTS idx_produtos_marca ON produtos(marca);
+
+-- ── Tabela de De-Para de SKUs
+CREATE TABLE IF NOT EXISTS sku_depara (
+  id          uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  marca       text NOT NULL,
+  sku_antigo  text NOT NULL,
+  sku_novo    text NOT NULL,
+  descricao   text,
+  fonte       text NOT NULL,
+  UNIQUE (marca, sku_antigo)
+);
+
+-- Trigger updated_at para produtos
+-- CREATE TRIGGER produtos_updated_at BEFORE UPDATE ON produtos FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- GRANTs necessários
+-- GRANT SELECT, INSERT, UPDATE, DELETE ON public.produtos   TO service_role;
+-- GRANT SELECT, INSERT, UPDATE, DELETE ON public.sku_depara TO service_role;

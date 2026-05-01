@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import { getProfile } from '@/lib/supabase/get-profile'
 import { ProfileProvider } from '@/lib/profile-context'
+import RegulAIWidget from '@/components/regulai/RegulAIWidget'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = createClient()
@@ -19,6 +20,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           {children}
         </main>
       </div>
+      <RegulAIWidget />
     </ProfileProvider>
   )
 }

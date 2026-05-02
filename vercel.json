@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/sync/drive",
-      "schedule": "0 * * * *"
+      "schedule": "0 6 * * *"
     },
     {
       "path": "/api/notificar-docs",
@@ -10,7 +10,7 @@
     },
     {
       "path": "/api/feed/atualizar",
-      "schedule": "0 */6 * * *"
+      "schedule": "0 12 * * *"
     }
   ]
 }

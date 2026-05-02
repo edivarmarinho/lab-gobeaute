@@ -8,6 +8,7 @@ import {
   Clock, XCircle
 } from 'lucide-react'
 import FeedNoticias from '@/components/lab/FeedNoticias'
+import PainelPendencias from '@/components/lab/PainelPendencias'
 
 // ─── Dados ────────────────────────────────────────────────────────────────────
 
@@ -39,6 +40,20 @@ async function getLabStats() {
     .select('marca')
     .eq('status', 'Ativo')
 
+  // Cobertura ANVISA: fórmulas validadas (não BID, não fechada por fábrica) com nº processo
+  const { count: formulasPrecisamAnvisa } = await supabase
+    .from('formulas')
+    .select('id', { count: 'exact', head: true })
+    .neq('status', 'Importada BID')
+    .neq('status', 'Arquivada')
+
+  const { count: formulasComAnvisa } = await supabase
+    .from('formulas')
+    .select('id', { count: 'exact', head: true })
+    .neq('status', 'Importada BID')
+    .neq('status', 'Arquivada')
+    .not('anvisa_processo', 'is', null)
+
   return {
     mps: mps.data ?? [],
     fornecedores: fornecedores.data ?? [],
@@ -52,6 +67,8 @@ async function getLabStats() {
     formulasReais: formulasReais ?? 0,
     formulasPorMarca: formulasPorMarca ?? [],
     produtosPorMarca: produtosPorMarca ?? [],
+    formulasPrecisamAnvisa: formulasPrecisamAnvisa ?? 0,
+    formulasComAnvisa: formulasComAnvisa ?? 0,
   }
 }
 
@@ -129,7 +146,8 @@ export default async function DashboardPage() {
     getProfile(),
   ])
 
-  const { mps, fornecedores, projetos, mpsCount, formulasCount, produtosAtivos, formulasReais, formulasPorMarca, produtosPorMarca } = stats
+  const { mps, fornecedores, projetos, mpsCount, formulasCount, produtosAtivos, formulasReais, formulasPorMarca, produtosPorMarca, formulasPrecisamAnvisa, formulasComAnvisa } = stats
+  const coberturaAnvisaPct = formulasPrecisamAnvisa > 0 ? Math.round((formulasComAnvisa / formulasPrecisamAnvisa) * 100) : 0
   const coberturaPct = produtosAtivos > 0 ? Math.round((formulasReais / produtosAtivos) * 100) : 0
 
   // KPIs calculados
@@ -200,6 +218,9 @@ export default async function DashboardPage() {
         </div>
       </div>
 
+      {/* ── Painel de Pendências do P&D — destaque pós-login ── */}
+      <PainelPendencias />
+
       {/* ── KPI Cards ── */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         {[
@@ -225,7 +246,40 @@ export default async function DashboardPage() {
         ))}
       </div>
 
-      {/* ── Banner: Cobertura de Fórmulas ── */}
+      {/* ── Banner duplo: Cobertura de Fórmulas + Cobertura ANVISA ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+
+      {/* Cobertura ANVISA */}
+      <a href="/dashboard/formulas" className="block bg-white rounded-xl border border-gray-100 shadow-sm p-4 md:p-5 hover:border-emerald-200 hover:shadow-md transition">
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="w-9 h-9 bg-emerald-50 rounded-lg flex items-center justify-center shrink-0">
+            <Shield className="w-4 h-4 text-emerald-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-gray-900">Cobertura ANVISA</p>
+            <p className="text-xs text-gray-400">Fórmulas validadas com nº de processo cadastrado</p>
+          </div>
+          <div className="text-right">
+            <p className={`text-3xl font-bold ${coberturaAnvisaPct >= 80 ? 'text-green-600' : coberturaAnvisaPct >= 40 ? 'text-yellow-600' : 'text-red-500'}`}>
+              {coberturaAnvisaPct}%
+            </p>
+            <p className="text-xs text-gray-400">{formulasComAnvisa}/{formulasPrecisamAnvisa}</p>
+          </div>
+        </div>
+        <div className="mt-3 h-2 bg-gray-100 rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all ${coberturaAnvisaPct >= 80 ? 'bg-green-400' : coberturaAnvisaPct >= 40 ? 'bg-yellow-400' : 'bg-red-400'}`}
+            style={{ width: `${Math.min(coberturaAnvisaPct, 100)}%` }}
+          />
+        </div>
+        <p className="text-xs text-gray-400 mt-1.5">
+          {formulasPrecisamAnvisa - formulasComAnvisa > 0
+            ? `${formulasPrecisamAnvisa - formulasComAnvisa} fórmula${formulasPrecisamAnvisa - formulasComAnvisa > 1 ? 's' : ''} sem nº ANVISA cadastrado`
+            : 'Todas as fórmulas têm nº ANVISA cadastrado ✓'}
+        </p>
+      </a>
+
+      {/* Cobertura SKU x Fórmula */}
       <a href="/dashboard/produtos" className="block bg-white rounded-xl border border-gray-100 shadow-sm p-4 md:p-5 hover:border-teal-200 hover:shadow-md transition">
         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
           <div className="flex items-center gap-3 min-w-0">
@@ -281,6 +335,8 @@ export default async function DashboardPage() {
           </div>
         </div>
       </a>
+
+      </div>{/* fim banner duplo */}
 
       {/* ── Linha 2: Pipeline + CRM + Feed ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">

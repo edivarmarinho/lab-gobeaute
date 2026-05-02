@@ -18,7 +18,8 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   const { ingredientes, ...formulaFields } = body
 
   const allowed = ['versao', 'produto', 'marca', 'tipo', 'categoria',
-    'status', 'responsavel', 'link_produto', 'grau', 'fase', 'obs', 'vendas_mes']
+    'status', 'responsavel', 'link_produto', 'grau', 'fase', 'obs', 'vendas_mes',
+    'posse', 'fechada_pela_fabrica', 'fabrica_nome', 'fabrica_observacoes', 'anvisa_detentor']
 
   const patch: Record<string, any> = {}
   for (const k of allowed) {

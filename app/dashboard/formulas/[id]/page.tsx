@@ -25,10 +25,29 @@ async function getFormula(id: string) {
     .eq('formula_id', id)
     .order('data_versao', { ascending: false })
 
+  // Buscar dados de MPs vinculadas (custo, INCI canônico, intel)
+  const mpCodigos = (ingredientes ?? []).map(i => i.mp_codigo).filter(Boolean)
+  const mpNomes   = (ingredientes ?? []).map(i => i.mp_nome).filter(Boolean)
+
+  let mpsRelacionadas: any[] = []
+  if (mpCodigos.length > 0 || mpNomes.length > 0) {
+    const { data } = await supabase
+      .from('mps')
+      .select('id, codigo, nome, inci, preco_ref_usd, melhor_preco_usd, flag_alergeno, flag_cmr, flag_preservante, flag_filtro_uv, flag_corante, flag_nanomaterial, inteligencia_tecnica')
+      .or(
+        [
+          mpCodigos.length > 0 ? `codigo.in.(${mpCodigos.map(c => `"${c}"`).join(',')})` : null,
+          mpNomes.length > 0 ? `nome.in.(${mpNomes.map(n => `"${n.replace(/"/g, '""')}"`).join(',')})` : null,
+        ].filter(Boolean).join(',')
+      )
+    mpsRelacionadas = data ?? []
+  }
+
   return {
     formula,
     ingredientes: ingredientes ?? [],
     versoes: versoes ?? [],
+    mpsRelacionadas,
   }
 }
 
@@ -45,6 +64,7 @@ export default async function FormulaDetalhePage({ params }: { params: { id: str
       formula={data.formula}
       ingredientes={data.ingredientes}
       versoes={data.versoes}
+      mpsRelacionadas={data.mpsRelacionadas}
       profile={profile}
     />
   )

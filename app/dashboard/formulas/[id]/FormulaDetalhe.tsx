@@ -4,7 +4,8 @@ import { useState, useMemo } from 'react'
 import {
   ArrowLeft, Beaker, FileText, History, ShieldCheck,
   Copy, Download, AlertTriangle, CheckCircle2, Info, XCircle,
-  Sparkles, FlaskConical, BarChart3, Send, ThumbsUp, ThumbsDown, Archive
+  Sparkles, FlaskConical, BarChart3, Send, ThumbsUp, ThumbsDown, Archive,
+  Lock, Unlock, Save, Calendar
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { clsx } from 'clsx'
@@ -12,6 +13,7 @@ import Link from 'next/link'
 import { avaliarCompliance } from '@/lib/anvisa'
 import { gerarINCI } from '@/lib/inci'
 import { ComplianceBadge } from '@/components/lab/ComplianceBadge'
+import PainelRegulatorio from '@/components/lab/PainelRegulatorio'
 
 type Formula = any
 type Ingrediente = any
@@ -22,6 +24,7 @@ const STATUS_COLOR: Record<string, string> = {
   'Aprovada Internamente':   'bg-yellow-100 text-yellow-700',
   'Em Estabilidade':         'bg-orange-100 text-orange-700',
   'Aprovada QA':             'bg-green-100 text-green-700',
+  'Registrada ANVISA':       'bg-emerald-100 text-emerald-800 border border-emerald-300',
   'Arquivada':               'bg-gray-100 text-gray-500',
   'Importada BID':           'bg-purple-100 text-purple-700',
 }
@@ -29,13 +32,25 @@ const STATUS_COLOR: Record<string, string> = {
 type Tab = 'composicao' | 'regulatorio' | 'inci' | 'historico'
 
 export default function FormulaDetalhe({
-  formula, ingredientes, versoes, profile,
+  formula, ingredientes, versoes, mpsRelacionadas = [], profile,
 }: {
   formula: Formula
   ingredientes: Ingrediente[]
   versoes: Versao[]
+  mpsRelacionadas?: any[]
   profile: any
 }) {
+  // Map MP por código e nome (para enriquecer ingredientes com custo + intel)
+  const mpPorChave: Record<string, any> = {}
+  for (const mp of mpsRelacionadas) {
+    if (mp.codigo) mpPorChave[`c:${mp.codigo}`] = mp
+    if (mp.nome)   mpPorChave[`n:${mp.nome.toLowerCase()}`] = mp
+  }
+  function findMP(ing: any) {
+    if (ing.mp_codigo && mpPorChave[`c:${ing.mp_codigo}`]) return mpPorChave[`c:${ing.mp_codigo}`]
+    if (ing.mp_nome && mpPorChave[`n:${ing.mp_nome.toLowerCase()}`]) return mpPorChave[`n:${ing.mp_nome.toLowerCase()}`]
+    return null
+  }
   const router = useRouter()
   const [tab, setTab] = useState<Tab>('composicao')
   const [tipoProduto, setTipoProduto] = useState<'leave-on' | 'rinse-off'>('leave-on')
@@ -130,6 +145,34 @@ export default function FormulaDetalhe({
       return sum + (isNaN(p) ? 0 : p)
     }, 0)
   }, [ingredientes])
+
+  // Custo NET USD da fórmula (cálculo baseado em % × custo MP)
+  const custoFormula = useMemo(() => {
+    let totalNet = 0
+    let totalMelhor = 0
+    let mpsComCusto = 0
+    for (const ing of ingredientes) {
+      const mp = findMP(ing)
+      if (!mp) continue
+      const pct = parseFloat(String(ing.percentual ?? '').replace(/[^0-9.]/g, ''))
+      if (isNaN(pct)) continue
+      // Custo USD por kg de fórmula = (pct / 100) × custoMP_USD
+      if (mp.preco_ref_usd) {
+        totalNet += (pct / 100) * Number(mp.preco_ref_usd)
+        mpsComCusto++
+      }
+      if (mp.melhor_preco_usd) {
+        totalMelhor += (pct / 100) * Number(mp.melhor_preco_usd)
+      }
+    }
+    const cobertura = ingredientes.length > 0 ? mpsComCusto / ingredientes.length : 0
+    return {
+      net_usd_kg: totalNet,
+      melhor_usd_kg: totalMelhor,
+      mpsComCusto,
+      cobertura,
+    }
+  }, [ingredientes, mpsRelacionadas])
 
   function copyINCI() {
     if (typeof navigator !== 'undefined') {
@@ -285,7 +328,7 @@ export default function FormulaDetalhe({
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
           <p className="text-xs text-gray-400 mb-1">Ingredientes</p>
           <p className="text-2xl font-bold text-gray-900">{ingredientes.length}</p>
@@ -301,11 +344,29 @@ export default function FormulaDetalhe({
           </p>
         </div>
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+          <p className="text-xs text-gray-400 mb-1">Custo NET</p>
+          <p className="text-xl font-bold text-gray-900">
+            ${custoFormula.net_usd_kg.toFixed(2)}
+          </p>
+          <p className="text-xs text-gray-400">USD/kg fórmula</p>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+          <p className="text-xs text-gray-400 mb-1">Cobertura preço</p>
+          <p className={clsx(
+            'text-xl font-bold',
+            custoFormula.cobertura >= 0.8 ? 'text-green-600' :
+            custoFormula.cobertura >= 0.4 ? 'text-yellow-600' : 'text-red-500'
+          )}>
+            {(custoFormula.cobertura * 100).toFixed(0)}%
+          </p>
+          <p className="text-xs text-gray-400">{custoFormula.mpsComCusto}/{ingredientes.length} MPs</p>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
           <p className="text-xs text-gray-400 mb-1">Versões</p>
           <p className="text-2xl font-bold text-gray-900">{versoes.length || 1}</p>
         </div>
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-          <p className="text-xs text-gray-400 mb-1">Alérgenos detectados</p>
+          <p className="text-xs text-gray-400 mb-1">Alérgenos</p>
           <p className="text-2xl font-bold text-amber-600">{inci.alergenos_declaraveis.length}</p>
         </div>
       </div>
@@ -377,32 +438,60 @@ export default function FormulaDetalhe({
                 <thead className="bg-white border-b border-gray-100">
                   <tr>
                     <th className="text-left px-5 py-2 text-xs font-medium text-gray-500">Ingrediente</th>
-                    <th className="text-left px-5 py-2 text-xs font-medium text-gray-500 hidden md:table-cell">INCI</th>
-                    <th className="text-left px-5 py-2 text-xs font-medium text-gray-500">%</th>
-                    <th className="text-left px-5 py-2 text-xs font-medium text-gray-500 hidden lg:table-cell">Função</th>
+                    <th className="text-left px-5 py-2 text-xs font-medium text-gray-500 hidden md:table-cell">INCI / Função</th>
+                    <th className="text-right px-5 py-2 text-xs font-medium text-gray-500">%</th>
+                    <th className="text-right px-5 py-2 text-xs font-medium text-gray-500 hidden lg:table-cell">$/kg</th>
+                    <th className="text-right px-5 py-2 text-xs font-medium text-gray-500 hidden lg:table-cell">Custo na fórmula</th>
                     <th className="text-left px-5 py-2 text-xs font-medium text-gray-500">Compliance</th>
+                    <th className="px-5 py-2" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {ings.map((ing, i) => {
                     const item = complianceItens.find(c => c.ing.id === ing.id) ?? complianceItens[i]
+                    const mp = findMP(ing)
+                    const pct = parseFloat(String(ing.percentual ?? '').replace(/[^0-9.]/g, ''))
+                    const custoUSDkg = mp?.preco_ref_usd ? Number(mp.preco_ref_usd) : null
+                    const custoNaFormula = (custoUSDkg && !isNaN(pct)) ? (pct / 100) * custoUSDkg : null
+                    const intel = mp?.inteligencia_tecnica
                     return (
                       <tr key={ing.id ?? i} className="hover:bg-gray-50 transition">
                         <td className="px-5 py-2.5">
                           <p className="text-sm font-medium text-gray-900">{ing.mp_nome ?? '—'}</p>
-                          {ing.mp_codigo && <p className="text-xs text-gray-400 font-mono">{ing.mp_codigo}</p>}
+                          <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                            {ing.mp_codigo && <span className="text-xs text-gray-400 font-mono">{ing.mp_codigo}</span>}
+                            {mp?.flag_cmr && <span className="text-[10px] bg-red-100 text-red-700 px-1 rounded font-bold" title="CMR">CMR</span>}
+                            {mp?.flag_alergeno && <span className="text-[10px] bg-purple-100 text-purple-700 px-1 rounded" title="Alérgeno declarável">⚠</span>}
+                            {mp?.flag_preservante && <span className="text-[10px] bg-amber-100 text-amber-700 px-1 rounded" title="Preservante">⚗</span>}
+                            {mp?.flag_filtro_uv && <span className="text-[10px] bg-orange-100 text-orange-700 px-1 rounded" title="Filtro UV">☀</span>}
+                          </div>
                         </td>
                         <td className="px-5 py-2.5 hidden md:table-cell">
-                          <span className="text-xs text-gray-500">{ing.inci ?? '—'}</span>
+                          <span className="text-xs text-gray-500 italic">{ing.inci ?? mp?.inci ?? '—'}</span>
+                          {(intel?.funcao_primaria || ing.funcao) && (
+                            <p className="text-xs text-gray-400 mt-0.5">
+                              {intel?.funcao_primaria ?? ing.funcao}
+                            </p>
+                          )}
                         </td>
-                        <td className="px-5 py-2.5">
+                        <td className="px-5 py-2.5 text-right">
                           <span className="text-sm font-medium text-gray-700">{ing.percentual ?? 'q.s.'}</span>
                         </td>
-                        <td className="px-5 py-2.5 hidden lg:table-cell">
-                          <span className="text-xs text-gray-400">{ing.funcao ?? '—'}</span>
+                        <td className="px-5 py-2.5 text-right hidden lg:table-cell">
+                          <span className="text-xs font-mono text-gray-600">{custoUSDkg ? `$${custoUSDkg.toFixed(2)}` : '—'}</span>
+                        </td>
+                        <td className="px-5 py-2.5 text-right hidden lg:table-cell">
+                          <span className="text-xs font-mono text-gray-700">{custoNaFormula ? `$${custoNaFormula.toFixed(4)}` : '—'}</span>
                         </td>
                         <td className="px-5 py-2.5">
                           <ComplianceBadge check={item?.check ?? { severidade: 'ok', mensagem: null, resolucao: null, restricao: null }} />
+                        </td>
+                        <td className="px-5 py-2.5 text-right">
+                          {mp && (
+                            <a href={`/dashboard/mps/${mp.id}`} className="text-xs text-brand-500 hover:underline" title="Ver ficha técnica completa">
+                              Ficha →
+                            </a>
+                          )}
                         </td>
                       </tr>
                     )
@@ -416,94 +505,12 @@ export default function FormulaDetalhe({
 
       {/* Tab: Regulatório */}
       {tab === 'regulatorio' && (
-        <div className="space-y-4">
-
-          {/* Resumo ANVISA */}
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <ShieldCheck className="w-4 h-4 text-brand-500" />
-              <h3 className="font-semibold text-gray-900 text-sm">Status Regulatório ANVISA</h3>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <p className="text-xs text-gray-400 mb-1">Grau ANVISA</p>
-                <p className="text-sm font-medium text-gray-700">{formula.anvisa_grau ?? 'Não classificado'}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400 mb-1">Nº Registro</p>
-                <p className="text-sm font-medium text-gray-700">{formula.anvisa_num_reg ?? '—'}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400 mb-1">Forma cosmética</p>
-                <p className="text-sm font-medium text-gray-700">{formula.forma_cosmetica ?? formula.tipo}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400 mb-1">Compliance Brasil</p>
-                <ComplianceBadge
-                  showLabel
-                  check={{
-                    severidade: statusCompliance,
-                    mensagem: statusCompliance === 'ok' ? 'Compliant com normas ANVISA' :
-                              statusCompliance === 'warning' ? 'Verificar avisos abaixo' :
-                              'Não conforme — ação necessária',
-                    resolucao: null,
-                    restricao: null,
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Lista de problemas */}
-          {complianceItens.filter(c => c.check.severidade !== 'ok').length > 0 && (
-            <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-              <div className="px-5 py-3 bg-gray-50 border-b border-gray-100">
-                <p className="text-sm font-semibold text-gray-700">Avisos e restrições por ingrediente</p>
-              </div>
-              <div className="divide-y divide-gray-50">
-                {complianceItens
-                  .filter(c => c.check.severidade !== 'ok')
-                  .sort((a, b) => {
-                    const ord = { error: 0, warning: 1, info: 2, ok: 3 }
-                    return ord[a.check.severidade] - ord[b.check.severidade]
-                  })
-                  .map((c, i) => (
-                    <div key={i} className="px-5 py-3 flex items-start gap-3">
-                      <ComplianceBadge check={c.check} size="md" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900">{c.ing.mp_nome}</p>
-                        <p className="text-xs text-gray-600 mt-0.5">{c.check.mensagem}</p>
-                        {c.check.resolucao && (
-                          <p className="text-xs text-gray-400 mt-1">📜 {c.check.resolucao}</p>
-                        )}
-                      </div>
-                      <span className="text-sm font-medium text-gray-500">{c.ing.percentual ?? '—'}</span>
-                    </div>
-                  ))}
-              </div>
-            </div>
-          )}
-
-          {/* Alérgenos */}
-          {inci.alergenos_declaraveis.length > 0 && (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-              <p className="text-sm font-semibold text-amber-800 mb-2 flex items-center gap-1.5">
-                <AlertTriangle className="w-4 h-4" /> Alérgenos com declaração obrigatória
-              </p>
-              <p className="text-xs text-amber-700 mb-2">
-                Os seguintes alérgenos estão presentes acima do limite de declaração ({tipoProduto === 'leave-on' ? '0.001%' : '0.01%'}) e devem aparecer no rótulo:
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {inci.alergenos_declaraveis.map(a => (
-                  <span key={a} className="text-xs bg-white text-amber-700 px-2 py-1 rounded-md border border-amber-200 font-medium">
-                    {a}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+        <PainelRegulatorio
+          formula={formula}
+          canEdit={canAprovar}
+          isAdmin={profile?.role === 'admin'}
+          statusCompliance={statusCompliance}
+        />
       )}
 
       {/* Tab: INCI */}

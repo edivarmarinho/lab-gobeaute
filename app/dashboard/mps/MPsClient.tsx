@@ -768,7 +768,7 @@ export default function MPsClient({ mps: initialMps, canEdit }: { mps: MP[]; can
               <th className="text-left px-4 py-3 font-medium text-gray-500">Homologação</th>
               <th className="text-left px-4 py-3 font-medium text-gray-500 hidden lg:table-cell">Fornecedor</th>
               <th className="text-right px-4 py-3 font-medium text-gray-500 hidden lg:table-cell">USD/kg</th>
-              {canEdit && <th className="px-4 py-3 w-16" />}
+              <th className="px-4 py-3 w-32" />
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
@@ -812,22 +812,30 @@ export default function MPsClient({ mps: initialMps, canEdit }: { mps: MP[]; can
                   <td className="px-4 py-3 text-right text-gray-700 font-mono text-xs hidden lg:table-cell">
                     {mp.preco_ref_usd ? `$${Number(mp.preco_ref_usd).toFixed(2)}` : '—'}
                   </td>
-                  {canEdit && (
-                    <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
-                      <button
-                        onClick={() => openEdit(mp)}
-                        className="text-xs text-gray-400 hover:text-blue-600 transition"
+                  <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
+                    <div className="flex items-center justify-end gap-3">
+                      <a
+                        href={`/dashboard/mps/${mp.id}`}
+                        className="text-xs text-brand-500 hover:text-brand-700 hover:underline transition font-medium"
                       >
-                        Editar
-                      </button>
-                    </td>
-                  )}
+                        Ver detalhe →
+                      </a>
+                      {canEdit && (
+                        <button
+                          onClick={() => openEdit(mp)}
+                          className="text-xs text-gray-400 hover:text-blue-600 transition"
+                        >
+                          Editar
+                        </button>
+                      )}
+                    </div>
+                  </td>
                 </tr>
 
                 {/* Linha expandida */}
                 {expandedId === mp.id && (
                   <tr key={`${mp.id}-detail`} className="bg-blue-50/30">
-                    <td colSpan={canEdit ? 9 : 8} className="px-8 py-4">
+                    <td colSpan={9} className="px-8 py-4">
                       <div className="flex justify-end mb-3">
                         <button
                           onClick={e => { e.stopPropagation(); setComparativoMp(mp) }}

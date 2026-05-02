@@ -48,7 +48,7 @@ export function ComplianceTooltip({ check }: { check: ComplianceCheck }) {
   if (!check.mensagem) return null
   const cfg = CONFIG[check.severidade]
   return (
-    <div className={clsx('text-xs p-2 rounded border', cfg.bg, cfg.color, 'border-current/20')}>
+    <div className={clsx('text-xs p-2 rounded border border-gray-200', cfg.bg, cfg.color)}>
       <p className="font-medium">{check.mensagem}</p>
       {check.resolucao && (
         <p className="text-xs opacity-75 mt-1">📜 {check.resolucao}</p>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Newspaper, ExternalLink, RefreshCw, AlertTriangle, Beaker, Globe, TrendingUp } from 'lucide-react'
+import { Newspaper, ExternalLink, RefreshCw, AlertTriangle, Beaker, Globe, TrendingUp, Sparkles } from 'lucide-react'
 import { clsx } from 'clsx'
 import type { NoticiaItem } from '@/app/api/feed/noticias/route'
 
@@ -17,6 +17,8 @@ export default function FeedNoticias() {
   const [loading, setLoading] = useState(true)
   const [filtro, setFiltro] = useState<string>('todos')
   const [expandido, setExpandido] = useState<string | null>(null)
+  const [agenteAtivo, setAgenteAtivo] = useState(false)
+  const [atualizadoEm, setAtualizadoEm] = useState<string | null>(null)
 
   async function load() {
     setLoading(true)
@@ -24,6 +26,8 @@ export default function FeedNoticias() {
       const res = await fetch('/api/feed/noticias')
       const json = await res.json()
       setNoticias(json.noticias ?? [])
+      setAgenteAtivo(json.agente_ativo === true)
+      setAtualizadoEm(json.atualizado_em ?? null)
     } catch {
       setNoticias([])
     } finally {
@@ -168,10 +172,16 @@ export default function FeedNoticias() {
         )}
       </div>
 
-      <div className="px-5 py-2.5 border-t border-gray-100 bg-gray-50">
+      <div className="px-5 py-2.5 border-t border-gray-100 bg-gray-50 flex items-center justify-between flex-wrap gap-1">
         <p className="text-xs text-gray-400">
-          Fontes: ANVISA · Cosmetics & Toiletries · in-cosmetics · Cosmetics Business
+          Fontes: ANVISA · ABIHPEC · C&T · Cosmetics Design
         </p>
+        {agenteAtivo && (
+          <span className="inline-flex items-center gap-1 text-xs text-brand-500" title="Agente Claude classifica e filtra automaticamente">
+            <Sparkles className="w-3 h-3" />
+            <span>Agente IA ativo</span>
+          </span>
+        )}
       </div>
     </div>
   )

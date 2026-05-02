@@ -365,19 +365,29 @@ export default function FormulasClient({
   const [filterMarca, setFilterMarca] = useState('')
   const [filterTipo, setFilterTipo] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
+  const [aba, setAba] = useState<'validadas' | 'bid'>('validadas')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [modalFormula, setModalFormula] = useState<Formula | null | 'new'>('new' as any)
   const [modalOpen, setModalOpen] = useState(false)
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
-    return formulas.filter(f =>
-      (!q || f.codigo.toLowerCase().includes(q) || f.produto.toLowerCase().includes(q) || (f.categoria ?? '').toLowerCase().includes(q)) &&
-      (!filterMarca || f.marca === filterMarca) &&
-      (!filterTipo || f.tipo === filterTipo) &&
-      (!filterStatus || f.status === filterStatus)
-    )
-  }, [formulas, search, filterMarca, filterTipo, filterStatus])
+    return formulas.filter(f => {
+      // Filtro por aba primeiro
+      if (aba === 'validadas' && f.status === 'Importada BID') return false
+      if (aba === 'bid' && f.status !== 'Importada BID') return false
+
+      return (
+        (!q || f.codigo.toLowerCase().includes(q) || f.produto.toLowerCase().includes(q) || (f.categoria ?? '').toLowerCase().includes(q)) &&
+        (!filterMarca || f.marca === filterMarca) &&
+        (!filterTipo || f.tipo === filterTipo) &&
+        (!filterStatus || f.status === filterStatus)
+      )
+    })
+  }, [formulas, search, filterMarca, filterTipo, filterStatus, aba])
+
+  const totalValidadas = formulas.filter(f => f.status !== 'Importada BID').length
+  const totalBid = formulas.filter(f => f.status === 'Importada BID').length
 
   const marcas = [...new Set(formulas.map(f => f.marca))].sort()
 
@@ -423,6 +433,58 @@ export default function FormulasClient({
           </button>
         )}
       </div>
+
+      {/* Abas */}
+      <div className="flex border-b border-gray-200 mb-5">
+        <button
+          onClick={() => setAba('validadas')}
+          className={clsx(
+            'flex items-center gap-2 px-5 py-2.5 text-sm font-medium transition border-b-2',
+            aba === 'validadas'
+              ? 'border-teal-500 text-teal-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          )}
+        >
+          Validadas
+          <span className={clsx(
+            'text-xs px-1.5 py-0.5 rounded-full font-medium',
+            aba === 'validadas' ? 'bg-teal-100 text-teal-700' : 'bg-gray-100 text-gray-600'
+          )}>
+            {totalValidadas}
+          </span>
+        </button>
+        <button
+          onClick={() => setAba('bid')}
+          className={clsx(
+            'flex items-center gap-2 px-5 py-2.5 text-sm font-medium transition border-b-2',
+            aba === 'bid'
+              ? 'border-purple-500 text-purple-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          )}
+        >
+          A Validar (BID)
+          <span className={clsx(
+            'text-xs px-1.5 py-0.5 rounded-full font-medium',
+            aba === 'bid' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'
+          )}>
+            {totalBid}
+          </span>
+        </button>
+      </div>
+
+      {aba === 'bid' && (
+        <div className="bg-purple-50 border border-purple-100 rounded-xl p-4 mb-5 flex items-start gap-3">
+          <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center shrink-0">
+            <FlaskConical className="w-4 h-4 text-purple-600" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-purple-900">{totalBid} fórmulas importadas do BID aguardando validação</p>
+            <p className="text-xs text-purple-700 mt-1">
+              Estas fórmulas vieram do banco de dados do BID e contêm composições técnicas. A Patrícia precisa revisar uma a uma e decidir se promove para fórmula real (status "Em Desenvolvimento") ou se é apenas registro de matéria-prima/concentrado. Clique em uma linha para ver detalhes.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* KPIs rápidos */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
@@ -479,7 +541,7 @@ export default function FormulasClient({
               <th className="text-left px-4 py-3 font-medium text-gray-500">Status</th>
               <th className="text-center px-4 py-3 font-medium text-gray-500 hidden sm:table-cell">MPs</th>
               <th className="text-left px-4 py-3 font-medium text-gray-500 hidden lg:table-cell">Responsável</th>
-              {canEdit && <th className="px-4 py-3 w-16" />}
+              <th className="px-4 py-3 w-32" />
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
@@ -521,20 +583,28 @@ export default function FormulasClient({
                     </span>
                   </td>
                   <td className="px-4 py-3 text-xs text-gray-500 hidden lg:table-cell">{formula.responsavel ?? '—'}</td>
-                  {canEdit && (
-                    <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
-                      <button onClick={() => { setModalFormula(formula); setModalOpen(true) }}
-                        className="text-xs text-gray-400 hover:text-teal-600 transition">
-                        Editar
-                      </button>
-                    </td>
-                  )}
+                  <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
+                    <div className="flex items-center justify-end gap-3">
+                      <a
+                        href={`/dashboard/formulas/${formula.id}`}
+                        className="text-xs text-brand-500 hover:text-brand-700 hover:underline transition font-medium"
+                      >
+                        Ver detalhe →
+                      </a>
+                      {canEdit && (
+                        <button onClick={() => { setModalFormula(formula); setModalOpen(true) }}
+                          className="text-xs text-gray-400 hover:text-teal-600 transition">
+                          Editar
+                        </button>
+                      )}
+                    </div>
+                  </td>
                 </tr>
 
                 {/* Linha expandida */}
                 {expandedId === formula.id && (
                   <tr key={`${formula.id}-detail`} className="bg-teal-50/30">
-                    <td colSpan={canEdit ? 9 : 8} className="px-8 py-5">
+                    <td colSpan={9} className="px-8 py-5">
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs">
                         {/* Ingredientes */}
                         <div className="md:col-span-2">

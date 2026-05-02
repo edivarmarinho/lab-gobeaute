@@ -7,6 +7,10 @@
     {
       "path": "/api/notificar-docs",
       "schedule": "0 8 * * 1"
+    },
+    {
+      "path": "/api/feed/atualizar",
+      "schedule": "0 */6 * * *"
     }
   ]
 }

@@ -40,6 +40,17 @@ type MP = {
   ifra_compliance?: boolean
   iso_conformidade?: string | null
   substancias_alergenas?: string | null
+  // Flags ANVISA / regulatórias
+  flag_alergeno?: boolean
+  flag_cmr?: boolean
+  flag_nanomaterial?: boolean
+  flag_preservante?: boolean
+  flag_corante?: boolean
+  flag_filtro_uv?: boolean
+  funcao_cosmetica?: string[] | null
+  custo_kg_brl?: number | null
+  concentracao_max_br?: string | null
+  concentracao_max_eu?: string | null
 }
 
 const CATEGORIAS = [
@@ -775,6 +786,16 @@ export default function MPsClient({ mps: initialMps, canEdit }: { mps: MP[]; can
                   <td className="px-4 py-3">
                     <p className="font-medium text-gray-900 max-w-xs truncate">{mp.nome}</p>
                     {mp.inci && <p className="text-xs text-gray-400 truncate">{mp.inci}</p>}
+                    {(mp.flag_alergeno || mp.flag_cmr || mp.flag_preservante || mp.flag_filtro_uv || mp.flag_corante || mp.flag_nanomaterial) && (
+                      <div className="flex gap-1 mt-1 flex-wrap">
+                        {mp.flag_cmr && <span title="CMR — Carcinogênico/Mutagênico/Reprotóxico" className="text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-bold">CMR</span>}
+                        {mp.flag_preservante && <span title="Preservante (RDC 29/2012)" className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">⚗ Preserv.</span>}
+                        {mp.flag_filtro_uv && <span title="Filtro UV (RDC 30/2012)" className="text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">☀ Filtro UV</span>}
+                        {mp.flag_alergeno && <span title="Alérgeno declarável (EU Anexo III)" className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">⚠ Alérgeno</span>}
+                        {mp.flag_corante && <span title="Corante" className="text-[10px] bg-pink-100 text-pink-700 px-1.5 py-0.5 rounded">🎨</span>}
+                        {mp.flag_nanomaterial && <span title="Nanomaterial — declaração obrigatória" className="text-[10px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded">Nano</span>}
+                      </div>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-gray-500 text-xs">{mp.categoria ?? '—'}</td>
                   <td className="px-4 py-3">

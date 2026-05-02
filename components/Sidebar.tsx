@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react'
 import {
   FlaskConical, Package, Users, FolderKanban,
   FileText, LogOut, ShieldCheck, Beaker, Map, Menu, X,
-  LayoutDashboard, KeyRound,
+  LayoutDashboard, KeyRound, History,
 } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import type { Profile } from '@/lib/types'
@@ -42,6 +42,7 @@ export default function Sidebar({ user, profile }: { user: User; profile: Profil
     ...(isAdmin ? [
       { label: 'Usuários',       href: '/dashboard/admin/usuarios',       icon: ShieldCheck },
       { label: 'Acessos',        href: '/dashboard/admin/acessos',        icon: KeyRound },
+      { label: 'Auditoria',      href: '/dashboard/admin/auditoria',      icon: History },
     ] : []),
   ]
 

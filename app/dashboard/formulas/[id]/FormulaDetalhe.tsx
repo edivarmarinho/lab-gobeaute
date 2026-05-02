@@ -4,8 +4,9 @@ import { useState, useMemo } from 'react'
 import {
   ArrowLeft, Beaker, FileText, History, ShieldCheck,
   Copy, Download, AlertTriangle, CheckCircle2, Info, XCircle,
-  Sparkles, FlaskConical, BarChart3
+  Sparkles, FlaskConical, BarChart3, Send, ThumbsUp, ThumbsDown, Archive
 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { clsx } from 'clsx'
 import Link from 'next/link'
 import { avaliarCompliance } from '@/lib/anvisa'
@@ -28,15 +29,68 @@ const STATUS_COLOR: Record<string, string> = {
 type Tab = 'composicao' | 'regulatorio' | 'inci' | 'historico'
 
 export default function FormulaDetalhe({
-  formula, ingredientes, versoes,
+  formula, ingredientes, versoes, profile,
 }: {
   formula: Formula
   ingredientes: Ingrediente[]
   versoes: Versao[]
   profile: any
 }) {
+  const router = useRouter()
   const [tab, setTab] = useState<Tab>('composicao')
   const [tipoProduto, setTipoProduto] = useState<'leave-on' | 'rinse-off'>('leave-on')
+  const [aprovando, setAprovando] = useState(false)
+  const [rejeitando, setRejeitando] = useState(false)
+  const [motivoRejeicao, setMotivoRejeicao] = useState('')
+  const [showRejeitar, setShowRejeitar] = useState(false)
+  const [erroAcao, setErroAcao] = useState<string | null>(null)
+
+  const canAprovar = profile?.role === 'admin' || profile?.role === 'pd'
+
+  // Determinar ações disponíveis baseado no status atual
+  const acoesDisponiveis = useMemo(() => {
+    const t: Record<string, { acao: string; label: string; variante: 'primary' | 'success' | 'danger' | 'neutral' }[]> = {
+      'Em Desenvolvimento':    [{ acao: 'enviar_validacao', label: 'Enviar para validação', variante: 'primary' }],
+      'Em Estabilidade':       [
+        { acao: 'aprovar', label: 'Aprovar internamente', variante: 'success' },
+        { acao: 'rejeitar', label: 'Rejeitar', variante: 'danger' },
+      ],
+      'Aprovada Internamente': [
+        { acao: 'aprovar', label: 'Aprovar QA', variante: 'success' },
+        { acao: 'rejeitar', label: 'Rejeitar', variante: 'danger' },
+      ],
+      'Aprovada QA':           [{ acao: 'rejeitar', label: 'Reabrir', variante: 'neutral' }],
+      'Importada BID':         [
+        { acao: 'aprovar', label: 'Validar e promover', variante: 'success' },
+        { acao: 'rejeitar', label: 'Descartar', variante: 'danger' },
+      ],
+      'Arquivada': [],
+    }
+    return t[formula.status] ?? []
+  }, [formula.status])
+
+  async function executarAcao(acao: string, motivo?: string) {
+    setErroAcao(null)
+    if (acao === 'rejeitar') setRejeitando(true)
+    else setAprovando(true)
+    try {
+      const res = await fetch(`/api/formulas/${formula.id}/aprovacao`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ acao, motivo }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? 'Erro')
+      router.refresh()
+      setShowRejeitar(false)
+      setMotivoRejeicao('')
+    } catch (err: any) {
+      setErroAcao(err.message)
+    } finally {
+      setAprovando(false)
+      setRejeitando(false)
+    }
+  }
 
   // Calcular compliance por ingrediente
   const complianceItens = useMemo(() => {
@@ -145,6 +199,90 @@ export default function FormulaDetalhe({
           </div>
         </div>
       </div>
+
+      {/* Workflow de Aprovação */}
+      {canAprovar && acoesDisponiveis.length > 0 && (
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-2">
+              <Send className="w-4 h-4 text-brand-500" />
+              <p className="text-sm font-semibold text-gray-900">Workflow</p>
+              <span className="text-xs text-gray-400">Status atual: <strong>{formula.status}</strong></span>
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              {acoesDisponiveis.map(a => {
+                const Icon = a.acao === 'aprovar' ? ThumbsUp :
+                             a.acao === 'rejeitar' ? ThumbsDown :
+                             a.acao === 'arquivar' ? Archive : Send
+                const colorClasses = {
+                  primary: 'bg-brand-500 hover:bg-brand-600 text-white',
+                  success: 'bg-green-500 hover:bg-green-600 text-white',
+                  danger:  'bg-red-500 hover:bg-red-600 text-white',
+                  neutral: 'bg-gray-100 hover:bg-gray-200 text-gray-700',
+                }
+                return (
+                  <button
+                    key={a.acao}
+                    onClick={() => {
+                      if (a.acao === 'rejeitar') setShowRejeitar(true)
+                      else executarAcao(a.acao)
+                    }}
+                    disabled={aprovando || rejeitando}
+                    className={clsx(
+                      'flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg font-medium transition disabled:opacity-50',
+                      colorClasses[a.variante]
+                    )}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    {aprovando ? 'Processando...' : a.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {erroAcao && (
+            <div className="mt-3 text-xs text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+              {erroAcao}
+            </div>
+          )}
+
+          {showRejeitar && (
+            <div className="mt-4 bg-red-50 border border-red-100 rounded-lg p-3">
+              <p className="text-xs font-semibold text-red-700 mb-2">Motivo da rejeição (obrigatório)</p>
+              <textarea
+                value={motivoRejeicao}
+                onChange={e => setMotivoRejeicao(e.target.value)}
+                rows={3}
+                className="w-full text-sm border border-red-200 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-red-300 bg-white"
+                placeholder="Descreva o motivo da rejeição..."
+              />
+              <div className="flex gap-2 mt-2 justify-end">
+                <button
+                  onClick={() => { setShowRejeitar(false); setMotivoRejeicao('') }}
+                  className="text-xs px-3 py-1.5 text-gray-600 hover:bg-gray-100 rounded-lg transition"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => executarAcao('rejeitar', motivoRejeicao)}
+                  disabled={!motivoRejeicao.trim() || rejeitando}
+                  className="text-xs px-3 py-1.5 bg-red-500 text-white hover:bg-red-600 rounded-lg transition font-medium disabled:opacity-50"
+                >
+                  {rejeitando ? 'Rejeitando...' : 'Confirmar rejeição'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {formula.rejeicao_motivo && (
+            <div className="mt-3 bg-red-50 border border-red-100 rounded-lg p-2.5">
+              <p className="text-xs font-semibold text-red-700">Última rejeição:</p>
+              <p className="text-xs text-red-600 mt-0.5">{formula.rejeicao_motivo}</p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

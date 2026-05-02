@@ -1,6 +1,5 @@
-import type { Config } from 'tailwindcss'
-
-const config: Config = {
+/** @type {import('tailwindcss').Config} */
+module.exports = {
   content: [
     './app/**/*.{ts,tsx}',
     './components/**/*.{ts,tsx}',
@@ -17,11 +16,12 @@ const config: Config = {
           500: '#c84b8a',
           600: '#a8376e',
           700: '#8b2559',
+          800: '#6b1b44',
+          900: '#4a1230',
+          950: '#2d0a1c',
         },
       },
     },
   },
   plugins: [],
 }
-
-export default config

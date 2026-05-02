@@ -104,55 +104,29 @@ export default function RegulAIWidget({ pageContext }: { pageContext?: string })
         if (done) break
 
         buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop() || ''
+        const events = buffer.split('\n\n')
+        buffer = events.pop() || ''
 
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue
-          const jsonStr = line.slice(6).trim()
+        for (const event of events) {
+          const dataLines = event.split('\n').filter(l => l.startsWith('data: '))
+          if (dataLines.length === 0) continue
+          const jsonStr = dataLines.map(l => l.slice(6)).join('').trim()
           if (!jsonStr) continue
 
           try {
-            const event = JSON.parse(jsonStr)
-
-            if (event.type === 'text') {
+            const ev = JSON.parse(jsonStr)
+            if (ev.text) {
               setMessages(prev => prev.map(m =>
-                m.id === assistantId
-                  ? { ...m, content: m.content + event.text }
-                  : m
+                m.id === assistantId ? { ...m, content: m.content + ev.text } : m
               ))
-            } else if (event.type === 'tool_start' || event.type === 'tool_running') {
-              const newStatus: ToolStatus = {
-                tool: event.tool,
-                status: event.type === 'tool_start' ? 'start' : 'running',
-              }
-              setMessages(prev => prev.map(m => {
-                if (m.id !== assistantId) return m
-                const existing = m.toolStatuses || []
-                const idx = existing.findIndex(t => t.tool === event.tool && t.status !== 'done')
-                if (idx >= 0) {
-                  const updated = [...existing]
-                  updated[idx] = newStatus
-                  return { ...m, toolStatuses: updated }
-                }
-                return { ...m, toolStatuses: [...existing, newStatus] }
-              }))
-            } else if (event.type === 'tool_done') {
-              setMessages(prev => prev.map(m => {
-                if (m.id !== assistantId) return m
-                const updated = (m.toolStatuses || []).map(t =>
-                  t.tool === event.tool ? { ...t, status: 'done' as const } : t
-                )
-                return { ...m, toolStatuses: updated }
-              }))
-            } else if (event.type === 'done') {
+            } else if (ev.done) {
               setMessages(prev => prev.map(m =>
                 m.id === assistantId ? { ...m, isStreaming: false } : m
               ))
-            } else if (event.type === 'error') {
+            } else if (ev.error) {
               setMessages(prev => prev.map(m =>
                 m.id === assistantId
-                  ? { ...m, content: `Erro: ${event.message}`, isStreaming: false, isError: true }
+                  ? { ...m, content: `Erro: ${ev.error}`, isStreaming: false, isError: true }
                   : m
               ))
             }
@@ -266,8 +240,14 @@ export default function RegulAIWidget({ pageContext }: { pageContext?: string })
             {!hasMessages && showSuggestions && (
               <div className="space-y-3">
                 <div className="text-center py-4">
-                  <div className="w-12 h-12 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-2">
-                    <FlaskConical size={20} className="text-indigo-600" />
+                  <div className="w-16 h-16 bg-indigo-50 rounded-full mx-auto mb-2 overflow-hidden flex items-center justify-center border-2 border-indigo-100">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src="/regulai-avatar.png"
+                      alt="RegulAI"
+                      className="w-full h-full object-cover"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                    />
                   </div>
                   <p className="text-sm font-medium text-gray-700">Olá! Sou o RegulAI.</p>
                   <p className="text-xs text-gray-500 mt-1">Copiloto de ANVISA e P&D do Lab Gobeaute.</p>

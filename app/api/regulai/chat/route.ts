@@ -1,27 +1,36 @@
-import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { buildSystemPrompt } from '@/lib/regulai/system-prompt'
-import { TOOL_DEFINITIONS, executeTool } from '@/lib/regulai/tools'
 
 export const runtime = 'nodejs'
-export const maxDuration = 120
+export const maxDuration = 60
 
-// Tipo local para acumular tool use durante streaming (não usa o tipo read-only do SDK)
-type ToolUseBlockAccumulator = {
-  type: 'tool_use'
-  id: string
-  name: string
-  input: Record<string, unknown>
-  _rawInput?: string
-}
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-})
+// Cadeia de providers (Groq primeiro, fallback para OpenRouter)
+const PROVIDERS = [
+  {
+    name: 'Groq Llama 3.3 70B',
+    host: 'api.groq.com',
+    path: '/openai/v1/chat/completions',
+    keyEnv: 'GROQ_API_KEY',
+    model: 'llama-3.3-70b-versatile',
+  },
+  {
+    name: 'Groq Llama 3.1 8B',
+    host: 'api.groq.com',
+    path: '/openai/v1/chat/completions',
+    keyEnv: 'GROQ_API_KEY',
+    model: 'llama-3.1-8b-instant',
+  },
+  {
+    name: 'OpenRouter GPT OSS',
+    host: 'openrouter.ai',
+    path: '/api/v1/chat/completions',
+    keyEnv: 'OPENROUTER_API_KEY',
+    model: 'openai/gpt-oss-20b:free',
+  },
+]
 
 export async function POST(req: NextRequest) {
-  // Verificar autenticação
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
@@ -30,7 +39,7 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json()
   const { messages, pageContext } = body as {
-    messages: Anthropic.Messages.MessageParam[]
+    messages: Array<{ role: 'user' | 'assistant'; content: string }>
     pageContext?: string
   }
 
@@ -38,142 +47,106 @@ export async function POST(req: NextRequest) {
     return new Response(JSON.stringify({ error: 'Mensagens inválidas' }), { status: 400 })
   }
 
+  // System prompt vem do arquivo (texto simples para esses providers)
   const systemBlocks = buildSystemPrompt()
+  const systemText = systemBlocks.map(b => b.text).join('\n\n')
+  const systemFinal = pageContext
+    ? `${systemText}\n\nCONTEXTO DA PÁGINA ATUAL: ${pageContext}`
+    : systemText
 
-  // Adicionar contexto da página atual se fornecido
-  const systemFinal: Anthropic.Messages.TextBlockParam[] = pageContext
-    ? [
-        ...systemBlocks,
-        {
-          type: 'text',
-          text: `CONTEXTO DA PÁGINA ATUAL DO USUÁRIO: ${pageContext}\n\nUse este contexto para responder de forma mais relevante.`,
-        },
-      ]
-    : systemBlocks
+  const apiMessages = [
+    { role: 'system', content: systemFinal },
+    ...messages.filter(m => m.content.trim()).map(m => ({ role: m.role, content: m.content })),
+  ]
 
   const encoder = new TextEncoder()
-
   const stream = new ReadableStream({
     async start(controller) {
       const send = (data: object) => {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`))
       }
 
-      try {
-        let currentMessages = [...messages]
-        let iterations = 0
-        const MAX_ITERATIONS = 5
-
-        while (iterations < MAX_ITERATIONS) {
-          iterations++
-
-          const response = await anthropic.messages.create({
-            model: 'claude-sonnet-4-6',
-            max_tokens: 4096,
-            system: systemFinal,
-            tools: TOOL_DEFINITIONS,
-            messages: currentMessages,
-            stream: true,
-          })
-
-          let assistantText = ''
-          let toolUseBlocks: ToolUseBlockAccumulator[] = []
-          let stopReason: string | null = null
-
-          for await (const event of response) {
-            if (event.type === 'content_block_start') {
-              if (event.content_block.type === 'tool_use') {
-                // Sinaliza início de tool use
-                send({ type: 'tool_start', tool: event.content_block.name })
-                toolUseBlocks.push({
-                  type: 'tool_use',
-                  id: event.content_block.id,
-                  name: event.content_block.name,
-                  input: {},
-                  _rawInput: '',
-                })
-              }
-            } else if (event.type === 'content_block_delta') {
-              if (event.delta.type === 'text_delta') {
-                assistantText += event.delta.text
-                send({ type: 'text', text: event.delta.text })
-              } else if (event.delta.type === 'input_json_delta') {
-                // Acumular JSON do tool input
-                const lastTool = toolUseBlocks[toolUseBlocks.length - 1]
-                if (lastTool) {
-                  lastTool._rawInput = (lastTool._rawInput ?? '') + event.delta.partial_json
-                }
-              }
-            } else if (event.type === 'message_delta') {
-              stopReason = event.delta.stop_reason || null
-            }
-          }
-
-          // Parse tool inputs e remover campo auxiliar
-          for (const tool of toolUseBlocks) {
-            if (tool._rawInput) {
-              try {
-                tool.input = JSON.parse(tool._rawInput)
-              } catch {
-                tool.input = {}
-              }
-            }
-            delete tool._rawInput
-          }
-
-          // Montar bloco de conteúdo do assistente
-          type AssistantContentBlock =
-            | Anthropic.Messages.TextBlockParam
-            | { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> }
-          const assistantContent: AssistantContentBlock[] = []
-          if (assistantText) {
-            assistantContent.push({ type: 'text', text: assistantText })
-          }
-          for (const tool of toolUseBlocks) {
-            assistantContent.push({ type: 'tool_use', id: tool.id, name: tool.name, input: tool.input })
-          }
-
-          currentMessages = [
-            ...currentMessages,
-            { role: 'assistant', content: assistantContent },
-          ]
-
-          // Se não há tool calls, terminar
-          if (stopReason !== 'tool_use' || toolUseBlocks.length === 0) {
-            break
-          }
-
-          // Executar tool calls
-          const toolResults: Anthropic.Messages.ToolResultBlockParam[] = []
-
-          for (const tool of toolUseBlocks) {
-            send({ type: 'tool_running', tool: tool.name })
-
-            const result = await executeTool(
-              tool.name,
-              tool.input as Record<string, string>
-            )
-
-            toolResults.push({
-              type: 'tool_result',
-              tool_use_id: tool.id,
-              content: result,
-            })
-
-            send({ type: 'tool_done', tool: tool.name })
-          }
-
-          currentMessages = [
-            ...currentMessages,
-            { role: 'user', content: toolResults },
-          ]
+      const tryProvider = async (index: number): Promise<boolean> => {
+        if (index >= PROVIDERS.length) {
+          send({ text: 'Todos os modelos estão saturados. Tente novamente em 30 segundos.' })
+          return false
         }
 
-        send({ type: 'done' })
-        controller.close()
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Erro interno'
-        send({ type: 'error', message: msg })
+        const provider = PROVIDERS[index]
+        const apiKey = process.env[provider.keyEnv]
+        if (!apiKey) {
+          console.warn(`${provider.name}: chave ${provider.keyEnv} não configurada, pulando`)
+          return tryProvider(index + 1)
+        }
+
+        try {
+          const response = await fetch(`https://${provider.host}${provider.path}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${apiKey}`,
+              ...(provider.host === 'openrouter.ai' ? {
+                'HTTP-Referer': 'https://lab.gobeaute.com.br',
+                'X-Title': 'RegulAI Lab Gobeaute',
+              } : {}),
+            },
+            body: JSON.stringify({
+              model: provider.model,
+              messages: apiMessages,
+              stream: true,
+              max_tokens: 2048,
+              temperature: 0.3,
+            }),
+          })
+
+          if (!response.ok || !response.body) {
+            console.error(`${provider.name} falhou: status ${response.status}`)
+            return tryProvider(index + 1)
+          }
+
+          const reader = response.body.getReader()
+          const decoder = new TextDecoder()
+          let buffer = ''
+          let receivedText = false
+
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+            buffer += decoder.decode(value, { stream: true })
+            const events = buffer.split('\n\n')
+            buffer = events.pop() || ''
+            for (const event of events) {
+              const dataLines = event.split('\n').filter(l => l.startsWith('data: '))
+              if (dataLines.length === 0) continue
+              const jsonStr = dataLines.map(l => l.slice(6)).join('').trim()
+              if (!jsonStr || jsonStr === '[DONE]') continue
+              try {
+                const parsed = JSON.parse(jsonStr)
+                const text = parsed?.choices?.[0]?.delta?.content
+                if (text) {
+                  receivedText = true
+                  send({ text })
+                }
+              } catch {}
+            }
+          }
+
+          if (!receivedText) {
+            console.error(`${provider.name}: stream vazio, tentando próximo`)
+            return tryProvider(index + 1)
+          }
+
+          return true
+        } catch (err) {
+          console.error(`Erro em ${provider.name}:`, err instanceof Error ? err.message : err)
+          return tryProvider(index + 1)
+        }
+      }
+
+      try {
+        await tryProvider(0)
+      } finally {
+        send({ done: true })
         controller.close()
       }
     },
@@ -187,4 +160,3 @@ export async function POST(req: NextRequest) {
     },
   })
 }
-

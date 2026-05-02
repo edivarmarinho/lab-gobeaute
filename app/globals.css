@@ -4,6 +4,17 @@
 
 @layer components {
   .input {
-    @apply w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-100 focus:border-brand-500 transition;
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    transition-property: all;
+    transition-duration: 150ms;
+  }
+  .input:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px #fce7f3;
+    border-color: #c84b8a;
   }
 }

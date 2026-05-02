@@ -2,10 +2,12 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getProfile } from '@/lib/supabase/get-profile'
 import {
   FlaskConical, Package, Users, FolderKanban, FileText,
-  AlertTriangle, Clock, CheckCircle2, TrendingUp, Activity,
+  AlertTriangle, CheckCircle2, TrendingUp, Activity,
   Shield, Beaker, Microscope, ChevronRight, FileWarning,
-  BarChart3, Zap, Leaf, Star, ArrowUpRight, Target
+  BarChart3, Zap, Leaf, Star, ArrowUpRight, Target,
+  Clock, XCircle
 } from 'lucide-react'
+import FeedNoticias from '@/components/lab/FeedNoticias'
 
 // ─── Dados ────────────────────────────────────────────────────────────────────
 
@@ -17,15 +19,25 @@ async function getLabStats() {
     supabase.from('pd_projetos').select('id, etapa, status, marca'),
     supabase.from('documentos').select('id, tipo, validade'),
     supabase.from('fornecedor_crm').select('id, tipo, data_evento').order('data_evento', { ascending: false }).limit(8),
-    supabase.from('formulas').select('id, nome, status', { count: 'exact' }),
+    supabase.from('formulas').select('id, nome, status, marca', { count: 'exact' }),
     supabase.from('produtos').select('id', { count: 'exact', head: true }).eq('status', 'Ativo'),
   ])
 
-  // Cobertura de fórmulas: produtos ativos que têm fórmula com status real (não "Importada BID")
   const { count: formulasReais } = await supabase
     .from('formulas')
     .select('id', { count: 'exact', head: true })
     .neq('status', 'Importada BID')
+
+  // Cobertura por marca
+  const { data: formulasPorMarca } = await supabase
+    .from('formulas')
+    .select('marca, status')
+    .neq('status', 'Importada BID')
+
+  const { data: produtosPorMarca } = await supabase
+    .from('produtos')
+    .select('marca')
+    .eq('status', 'Ativo')
 
   return {
     mps: mps.data ?? [],
@@ -38,6 +50,8 @@ async function getLabStats() {
     formulasCount: formulas.count ?? 0,
     produtosAtivos: produtosAtivos.count ?? 0,
     formulasReais: formulasReais ?? 0,
+    formulasPorMarca: formulasPorMarca ?? [],
+    produtosPorMarca: produtosPorMarca ?? [],
   }
 }
 
@@ -115,7 +129,7 @@ export default async function DashboardPage() {
     getProfile(),
   ])
 
-  const { mps, fornecedores, projetos, mpsCount, formulasCount, produtosAtivos, formulasReais } = stats
+  const { mps, fornecedores, projetos, mpsCount, formulasCount, produtosAtivos, formulasReais, formulasPorMarca, produtosPorMarca } = stats
   const coberturaPct = produtosAtivos > 0 ? Math.round((formulasReais / produtosAtivos) * 100) : 0
 
   // KPIs calculados
@@ -139,6 +153,19 @@ export default async function DashboardPage() {
   const marcaCount: Record<string, number> = {}
   for (const p of projetos) {
     marcaCount[(p as any).marca] = (marcaCount[(p as any).marca] ?? 0) + 1
+  }
+
+  // Cobertura por marca
+  const coberturaByMarca: Record<string, { formulas: number; produtos: number }> = {}
+  for (const f of formulasPorMarca) {
+    const m = (f as any).marca
+    if (!coberturaByMarca[m]) coberturaByMarca[m] = { formulas: 0, produtos: 0 }
+    coberturaByMarca[m].formulas++
+  }
+  for (const p of produtosPorMarca) {
+    const m = (p as any).marca
+    if (!coberturaByMarca[m]) coberturaByMarca[m] = { formulas: 0, produtos: 0 }
+    coberturaByMarca[m].produtos++
   }
 
   const nomeUsuario = profile?.nome?.split(' ')[0] ?? 'Usuário'
@@ -173,63 +200,15 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* ── KPI Cards — linha principal ── */}
+      {/* ── KPI Cards ── */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         {[
-          {
-            label: 'Matérias-Primas',
-            value: mpsCount,
-            sub: `${homologadas} homologadas`,
-            icon: Package,
-            color: 'text-blue-600',
-            bg: 'bg-blue-50',
-            href: '/dashboard/mps',
-          },
-          {
-            label: 'Fornecedores',
-            value: fornecedores.length,
-            sub: `${fornHomologados} aprovados`,
-            icon: Users,
-            color: 'text-emerald-600',
-            bg: 'bg-emerald-50',
-            href: '/dashboard/fornecedores',
-          },
-          {
-            label: 'Projetos P&D',
-            value: projetos.length,
-            sub: `${projetosAtivosCount} em andamento`,
-            icon: FolderKanban,
-            color: 'text-purple-600',
-            bg: 'bg-purple-50',
-            href: '/dashboard/projetos',
-          },
-          {
-            label: 'Fórmulas',
-            value: formulasCount,
-            sub: 'biblioteca ativa',
-            icon: Beaker,
-            color: 'text-teal-600',
-            bg: 'bg-teal-50',
-            href: '/dashboard/formulas',
-          },
-          {
-            label: 'ISO 22716',
-            value: fornComISO,
-            sub: `de ${fornecedores.length} forn.`,
-            icon: Shield,
-            color: 'text-indigo-600',
-            bg: 'bg-indigo-50',
-            href: '/dashboard/fornecedores',
-          },
-          {
-            label: 'Naturais',
-            value: mpsNaturais,
-            sub: 'MPs de origem natural',
-            icon: Leaf,
-            color: 'text-lime-600',
-            bg: 'bg-lime-50',
-            href: '/dashboard/mps',
-          },
+          { label: 'Matérias-Primas', value: mpsCount, sub: `${homologadas} homologadas`, icon: Package, color: 'text-blue-600', bg: 'bg-blue-50', href: '/dashboard/mps' },
+          { label: 'Fornecedores', value: fornecedores.length, sub: `${fornHomologados} aprovados`, icon: Users, color: 'text-emerald-600', bg: 'bg-emerald-50', href: '/dashboard/fornecedores' },
+          { label: 'Projetos P&D', value: projetos.length, sub: `${projetosAtivosCount} em andamento`, icon: FolderKanban, color: 'text-purple-600', bg: 'bg-purple-50', href: '/dashboard/projetos' },
+          { label: 'Fórmulas', value: formulasCount, sub: `${formulasReais} validadas`, icon: Beaker, color: 'text-teal-600', bg: 'bg-teal-50', href: '/dashboard/formulas' },
+          { label: 'ISO 22716', value: fornComISO, sub: `de ${fornecedores.length} forn.`, icon: Shield, color: 'text-indigo-600', bg: 'bg-indigo-50', href: '/dashboard/fornecedores' },
+          { label: 'Naturais', value: mpsNaturais, sub: 'MPs origem natural', icon: Leaf, color: 'text-lime-600', bg: 'bg-lime-50', href: '/dashboard/mps' },
         ].map(kpi => (
           <a
             key={kpi.label}
@@ -247,7 +226,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* ── Banner: Cobertura de Fórmulas ── */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 md:p-5">
+      <a href="/dashboard/produtos" className="block bg-white rounded-xl border border-gray-100 shadow-sm p-4 md:p-5 hover:border-teal-200 hover:shadow-md transition">
         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-9 h-9 bg-teal-50 rounded-lg flex items-center justify-center shrink-0">
@@ -255,21 +234,41 @@ export default async function DashboardPage() {
             </div>
             <div>
               <p className="text-sm font-semibold text-gray-900">Cobertura de Fórmulas</p>
-              <p className="text-xs text-gray-400">Meta: 100% dos SKUs ativos com fórmula documentada</p>
+              <p className="text-xs text-gray-400">Clique para ver crossover por produto e marca →</p>
             </div>
           </div>
-          <div className="flex-1 flex items-center gap-4 sm:justify-end">
+          <div className="flex-1 flex items-center gap-4 sm:justify-end flex-wrap">
             <div className="text-right">
               <p className="text-2xl font-bold text-gray-900">{produtosAtivos.toLocaleString('pt-BR')}</p>
               <p className="text-xs text-gray-400">SKUs ativos</p>
             </div>
-            <div className="w-px h-10 bg-gray-100" />
+            <div className="w-px h-10 bg-gray-100 hidden sm:block" />
             <div className="text-right">
               <p className={`text-2xl font-bold ${coberturaPct >= 80 ? 'text-green-600' : coberturaPct >= 40 ? 'text-yellow-600' : 'text-red-500'}`}>
                 {coberturaPct}%
               </p>
-              <p className="text-xs text-gray-400">com fórmula</p>
+              <p className="text-xs text-gray-400">documentadas</p>
             </div>
+
+            {/* Breakdown por marca top 4 */}
+            <div className="hidden lg:flex gap-3">
+              {Object.entries(coberturaByMarca)
+                .filter(([, v]) => v.produtos > 0)
+                .sort(([, a], [, b]) => b.produtos - a.produtos)
+                .slice(0, 4)
+                .map(([marca, v]) => {
+                  const pct = v.produtos > 0 ? Math.round((v.formulas / v.produtos) * 100) : 0
+                  return (
+                    <div key={marca} className="text-center">
+                      <p className={`text-sm font-bold ${pct >= 80 ? 'text-green-600' : pct >= 30 ? 'text-yellow-600' : 'text-red-500'}`}>
+                        {pct}%
+                      </p>
+                      <p className="text-xs text-gray-400 truncate max-w-16">{marca}</p>
+                    </div>
+                  )
+                })}
+            </div>
+
             <div className="flex-1 max-w-xs hidden sm:block">
               <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                 <div
@@ -277,57 +276,51 @@ export default async function DashboardPage() {
                   style={{ width: `${Math.min(coberturaPct, 100)}%` }}
                 />
               </div>
-              <p className="text-xs text-gray-400 mt-1">{formulasReais} fórmulas documentadas de {produtosAtivos} SKUs ativos</p>
+              <p className="text-xs text-gray-400 mt-1">{formulasReais} de {produtosAtivos} SKUs</p>
             </div>
           </div>
         </div>
-      </div>
+      </a>
 
-      {/* ── Linha 2: Pipeline + CRM ── */}
+      {/* ── Linha 2: Pipeline + CRM + Feed ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
-        {/* Pipeline de projetos */}
-        <div className="lg:col-span-2 bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        {/* Pipeline */}
+        <div className="lg:col-span-1 bg-white rounded-xl border border-gray-100 shadow-sm p-5">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <FolderKanban className="w-4 h-4 text-purple-500" />
-              <h2 className="font-semibold text-gray-900 text-sm">Pipeline de Projetos</h2>
+              <h2 className="font-semibold text-gray-900 text-sm">Pipeline P&D</h2>
             </div>
             <a href="/dashboard/projetos" className="text-xs text-brand-500 hover:underline flex items-center gap-1">
-              Ver kanban <ChevronRight className="w-3 h-3" />
+              Kanban <ChevronRight className="w-3 h-3" />
             </a>
           </div>
 
-          {/* Etapas do pipeline */}
-          <div className="grid grid-cols-3 gap-2 mb-5">
+          <div className="grid grid-cols-3 gap-2 mb-4">
             {['Formulação em Bancada', 'Testes Internos', 'Aprovação QA'].map(etapa => (
-              <div key={etapa} className="text-center p-3 bg-gray-50 rounded-lg">
+              <div key={etapa} className="text-center p-2.5 bg-gray-50 rounded-lg">
                 <p className="text-xl font-bold text-gray-900">{etapaCount[etapa] ?? 0}</p>
-                <p className="text-xs text-gray-500 mt-0.5 leading-tight">{etapa}</p>
+                <p className="text-xs text-gray-500 mt-0.5 leading-tight">{etapa.split(' ')[0]}</p>
               </div>
             ))}
           </div>
 
-          {/* Lista de projetos ativos */}
           <div className="space-y-2">
-            {projetosAtivos.slice(0, 5).map((p: any) => {
+            {projetosAtivos.slice(0, 4).map((p: any) => {
               const step = etapaStep[p.etapa] ?? 0
               return (
                 <div key={p.id} className="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
-                  {/* Progress mini */}
                   <div className="flex gap-0.5 shrink-0">
                     {[1,2,3,4,5,6].map(i => (
-                      <div
-                        key={i}
-                        className={`h-1.5 w-3.5 rounded-sm ${i <= step ? 'bg-brand-400' : 'bg-gray-100'}`}
-                      />
+                      <div key={i} className={`h-1.5 w-3 rounded-sm ${i <= step ? 'bg-brand-400' : 'bg-gray-100'}`} />
                     ))}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{p.nome}</p>
-                    <p className="text-xs text-gray-400">{p.marca} · {p.codigo}</p>
+                    <p className="text-xs font-medium text-gray-900 truncate">{p.nome}</p>
+                    <p className="text-xs text-gray-400">{p.marca}</p>
                   </div>
-                  <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium ${etapaColor[p.etapa] ?? 'bg-gray-100 text-gray-600'}`}>
+                  <span className={`shrink-0 text-xs px-1.5 py-0.5 rounded-full font-medium ${etapaColor[p.etapa] ?? 'bg-gray-100 text-gray-600'}`}>
                     {p.etapa?.split(' ')[0]}
                   </span>
                 </div>
@@ -355,9 +348,7 @@ export default async function DashboardPage() {
               <div key={ev.id} className="flex items-start gap-2.5">
                 <span className="text-sm mt-0.5 shrink-0">{crmIcon[ev.tipo] ?? 'ℹ️'}</span>
                 <div className="min-w-0">
-                  <p className={`text-xs font-semibold ${crmColor[ev.tipo] ?? 'text-gray-600'}`}>
-                    {ev.titulo}
-                  </p>
+                  <p className={`text-xs font-semibold ${crmColor[ev.tipo] ?? 'text-gray-600'}`}>{ev.titulo}</p>
                   <p className="text-xs text-gray-400">
                     {(ev.fornecedores as any)?.nome ?? '—'}
                     {ev.data_evento && ` · ${new Date(ev.data_evento).toLocaleDateString('pt-BR')}`}
@@ -370,9 +361,12 @@ export default async function DashboardPage() {
             )}
           </div>
         </div>
+
+        {/* Feed de Notícias ANVISA/Cosméticos */}
+        <FeedNoticias />
       </div>
 
-      {/* ── Linha 3: Alertas + Marcas + Atalhos ── */}
+      {/* ── Linha 3: Alertas + Marcas + Módulos ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
         {/* Alertas de documentos */}
@@ -410,30 +404,36 @@ export default async function DashboardPage() {
           )}
         </div>
 
-        {/* Distribuição por marca */}
+        {/* Cobertura por marca */}
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <BarChart3 className="w-4 h-4 text-blue-500" />
-            <h2 className="font-semibold text-gray-900 text-sm">Projetos por Marca</h2>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <BarChart3 className="w-4 h-4 text-teal-500" />
+              <h2 className="font-semibold text-gray-900 text-sm">Cobertura por Marca</h2>
+            </div>
+            <a href="/dashboard/produtos" className="text-xs text-brand-500 hover:underline">Detalhes</a>
           </div>
-          {Object.keys(marcaCount).length === 0 ? (
-            <p className="text-xs text-gray-400 italic text-center py-4">Sem dados</p>
+          {Object.keys(coberturaByMarca).length === 0 ? (
+            <p className="text-xs text-gray-400 italic text-center py-4">Sem dados de produtos</p>
           ) : (
-            <div className="space-y-2.5">
-              {Object.entries(marcaCount)
-                .sort(([, a], [, b]) => b - a)
+            <div className="space-y-3">
+              {Object.entries(coberturaByMarca)
+                .filter(([, v]) => v.produtos > 0)
+                .sort(([, a], [, b]) => b.produtos - a.produtos)
                 .slice(0, 7)
-                .map(([marca, count]) => {
-                  const pct = Math.round((count / projetos.length) * 100)
+                .map(([marca, v]) => {
+                  const pct = v.produtos > 0 ? Math.round((v.formulas / v.produtos) * 100) : 0
                   return (
                     <div key={marca}>
                       <div className="flex justify-between text-xs mb-1">
                         <span className="font-medium text-gray-700">{marca}</span>
-                        <span className="text-gray-400">{count} proj.</span>
+                        <span className={`font-bold ${pct >= 80 ? 'text-green-600' : pct >= 30 ? 'text-yellow-600' : 'text-red-500'}`}>
+                          {pct}% <span className="text-gray-400 font-normal">({v.formulas}/{v.produtos})</span>
+                        </span>
                       </div>
                       <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
                         <div
-                          className="h-full bg-brand-400 rounded-full transition-all"
+                          className={`h-full rounded-full transition-all ${pct >= 80 ? 'bg-green-400' : pct >= 30 ? 'bg-yellow-400' : 'bg-red-400'}`}
                           style={{ width: `${pct}%` }}
                         />
                       </div>
@@ -444,25 +444,22 @@ export default async function DashboardPage() {
           )}
         </div>
 
-        {/* Módulos — atalhos rápidos inspirados no Coptis PLM */}
+        {/* Módulos do Lab */}
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
           <div className="flex items-center gap-2 mb-4">
             <Microscope className="w-4 h-4 text-teal-500" />
             <h2 className="font-semibold text-gray-900 text-sm">Módulos do Lab</h2>
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             {[
               { label: 'Matérias-Primas', sub: `${mpsCount} MPs · ${homologadas} homologadas`, icon: Package, href: '/dashboard/mps', color: 'text-blue-500' },
               { label: 'Fornecedores & CRM', sub: `${fornecedores.length} fornec. · ${fornHomologados} aprovados`, icon: Users, href: '/dashboard/fornecedores', color: 'text-emerald-500' },
               { label: 'Projetos Kanban', sub: `${projetosAtivosCount} ativos · 6 etapas`, icon: FolderKanban, href: '/dashboard/projetos', color: 'text-purple-500' },
-              { label: 'Biblioteca de Fórmulas', sub: `${formulasCount} fórmulas`, icon: Beaker, href: '/dashboard/formulas', color: 'text-teal-500' },
+              { label: 'Biblioteca de Fórmulas', sub: `${formulasCount} fórmulas · ${formulasReais} validadas`, icon: Beaker, href: '/dashboard/formulas', color: 'text-teal-500' },
               { label: 'Documentos & Laudos', sub: `${stats.documentos.length} docs`, icon: FileText, href: '/dashboard/documentos', color: 'text-orange-500' },
+              { label: 'Catálogo de Produtos', sub: `${produtosAtivos.toLocaleString('pt-BR')} SKUs ativos`, icon: Package, href: '/dashboard/produtos', color: 'text-gray-500' },
             ].map(m => (
-              <a
-                key={m.href}
-                href={m.href}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-50 transition group"
-              >
+              <a key={m.href} href={m.href} className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-50 transition group">
                 <m.icon className={`w-4 h-4 ${m.color} shrink-0`} />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-800 group-hover:text-gray-900">{m.label}</p>

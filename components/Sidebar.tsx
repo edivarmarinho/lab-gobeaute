@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react'
 import {
   FlaskConical, Package, Users, FolderKanban,
   FileText, LogOut, ShieldCheck, Beaker, Map, Menu, X,
+  LayoutDashboard, KeyRound,
 } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import type { Profile } from '@/lib/types'
@@ -30,14 +31,18 @@ export default function Sidebar({ user, profile }: { user: User; profile: Profil
   }, [])
 
   const nav = [
-    { label: 'Dashboard',        href: '/dashboard',                    icon: FlaskConical },
-    { label: 'Projetos P&D',     href: '/dashboard/projetos',           icon: FolderKanban },
-    { label: 'Matérias-Primas',  href: '/dashboard/mps',                icon: Package },
-    { label: 'Fórmulas',         href: '/dashboard/formulas',           icon: Beaker },
-    { label: 'Fornecedores',     href: '/dashboard/fornecedores',       icon: Users },
-    { label: 'Documentos',       href: '/dashboard/documentos',         icon: FileText },
-    { label: 'Roadmap',          href: '/dashboard/roadmap',            icon: Map },
-    ...(isAdmin ? [{ label: 'Usuários', href: '/dashboard/admin/usuarios', icon: ShieldCheck }] : []),
+    { label: 'Dashboard',        href: '/dashboard',                      icon: FlaskConical },
+    { label: 'Projetos P&D',     href: '/dashboard/projetos',             icon: FolderKanban },
+    { label: 'Matérias-Primas',  href: '/dashboard/mps',                  icon: Package },
+    { label: 'Fórmulas',         href: '/dashboard/formulas',             icon: Beaker },
+    { label: 'Fornecedores',     href: '/dashboard/fornecedores',         icon: Users },
+    { label: 'Documentos',       href: '/dashboard/documentos',           icon: FileText },
+    { label: 'Produtos',         href: '/dashboard/produtos',             icon: Package },
+    { label: 'Roadmap',          href: '/dashboard/roadmap',              icon: Map },
+    ...(isAdmin ? [
+      { label: 'Usuários',       href: '/dashboard/admin/usuarios',       icon: ShieldCheck },
+      { label: 'Acessos',        href: '/dashboard/admin/acessos',        icon: KeyRound },
+    ] : []),
   ]
 
   async function signOut() {

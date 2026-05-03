@@ -117,16 +117,13 @@ export default function ChatMessage({ message }: { message: ChatMessageData }) {
   // Mensagem do assistente
   return (
     <div className="flex gap-2">
-      <div className="shrink-0 w-7 h-7 rounded-full overflow-hidden mt-0.5 bg-indigo-50 border border-indigo-100 flex items-center justify-center">
-        {/* Avatar customizado: coloque /public/regulai-avatar.svg; cai para ícone se não existir */}
+      <div className="shrink-0 w-7 h-7 rounded-full overflow-hidden mt-0.5 ring-1 ring-indigo-100">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/regulai-avatar.svg"
+          src={message.isError ? '/regulai/poses/alert.png' : '/regulai/poses/idle.png'}
           alt="RegulAI"
           className="w-full h-full object-cover"
-          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
         />
-        <FlaskConical size={14} className="text-indigo-600 absolute" style={{ zIndex: -1 }} />
       </div>
 
       <div className="max-w-[90%] space-y-2 min-w-0">

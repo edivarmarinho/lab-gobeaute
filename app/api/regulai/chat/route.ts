@@ -5,7 +5,8 @@ import { buildSystemPrompt } from '@/lib/regulai/system-prompt'
 export const runtime = 'nodejs'
 export const maxDuration = 60
 
-// Cadeia de providers (Groq primeiro, fallback para OpenRouter)
+// Cadeia de providers — ordem por qualidade/velocidade.
+// Groq é primário; OpenRouter (vários modelos free) é fallback robusto.
 const PROVIDERS = [
   {
     name: 'Groq Llama 3.3 70B',
@@ -22,11 +23,25 @@ const PROVIDERS = [
     model: 'llama-3.1-8b-instant',
   },
   {
-    name: 'OpenRouter GPT OSS',
+    name: 'OpenRouter Llama 3.3 70B free',
     host: 'openrouter.ai',
     path: '/api/v1/chat/completions',
     keyEnv: 'OPENROUTER_API_KEY',
-    model: 'openai/gpt-oss-20b:free',
+    model: 'meta-llama/llama-3.3-70b-instruct:free',
+  },
+  {
+    name: 'OpenRouter DeepSeek Chat free',
+    host: 'openrouter.ai',
+    path: '/api/v1/chat/completions',
+    keyEnv: 'OPENROUTER_API_KEY',
+    model: 'deepseek/deepseek-chat:free',
+  },
+  {
+    name: 'OpenRouter Qwen 2.5 72B free',
+    host: 'openrouter.ai',
+    path: '/api/v1/chat/completions',
+    keyEnv: 'OPENROUTER_API_KEY',
+    model: 'qwen/qwen-2.5-72b-instruct:free',
   },
 ]
 
@@ -66,9 +81,13 @@ export async function POST(req: NextRequest) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`))
       }
 
+      let lastStatus = 0
       const tryProvider = async (index: number): Promise<boolean> => {
         if (index >= PROVIDERS.length) {
-          send({ text: 'Todos os modelos estão saturados. Tente novamente em 30 segundos.' })
+          const msg = lastStatus === 429
+            ? 'Limite de requisições atingido em todos os modelos. Tente em ~1 min.'
+            : 'Os modelos do RegulAI estão indisponíveis no momento. Tente novamente em alguns segundos.'
+          send({ error: msg })
           return false
         }
 
@@ -100,6 +119,7 @@ export async function POST(req: NextRequest) {
           })
 
           if (!response.ok || !response.body) {
+            lastStatus = response.status
             console.error(`${provider.name} falhou: status ${response.status}`)
             return tryProvider(index + 1)
           }

@@ -192,7 +192,7 @@ export default function RegulAIWidget({ pageContext }: { pageContext?: string })
         {isOpen ? (
           <ChevronDown size={16} />
         ) : (
-          <FlaskConical size={16} />
+          <img src="/regulai-avatar.svg" alt="" className="w-5 h-5" />
         )}
         <span className="text-sm font-medium">RegulAI</span>
         {isLoading && (
@@ -207,8 +207,8 @@ export default function RegulAIWidget({ pageContext }: { pageContext?: string })
         >
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 bg-indigo-600 text-white">
-            <div className="flex items-center gap-2">
-              <FlaskConical size={16} />
+            <div className="flex items-center gap-2.5">
+              <img src="/regulai-avatar.svg" alt="" className="w-7 h-7 rounded-full ring-2 ring-white/30" />
               <div>
                 <p className="text-sm font-semibold leading-none">RegulAI</p>
                 <p className="text-xs text-indigo-200 leading-none mt-0.5">Copiloto ANVISA & P&D</p>

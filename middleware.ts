@@ -1,6 +1,8 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextRequest, NextResponse } from 'next/server'
 
+const ALLOWED_DOMAIN = '@gobeaute.com.br'
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
@@ -33,6 +35,14 @@ export async function middleware(request: NextRequest) {
   )
 
   const { data: { user } } = await supabase.auth.getUser()
+
+  // ── DomainShield: somente @gobeaute.com.br ──
+  if (user?.email && !user.email.toLowerCase().endsWith(ALLOWED_DOMAIN)) {
+    await supabase.auth.signOut()
+    const url = new URL('/login', request.url)
+    url.searchParams.set('error', 'SECURITY_DOMAIN_MISMATCH')
+    return NextResponse.redirect(url)
+  }
 
   const isProtected =
     pathname.startsWith('/dashboard') ||

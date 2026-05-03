@@ -12,5 +12,16 @@ export async function getProfile(): Promise<Profile | null> {
     .eq('id', user.id)
     .single()
 
-  return (data as Profile) ?? null
+  const profile = (data as Profile & { status?: string }) ?? null
+
+  // DomainShield + Ban: força logout se domínio errado, banido ou suspenso
+  if (profile) {
+    const domainOk = (user.email ?? '').toLowerCase().endsWith('@gobeaute.com.br')
+    if (!domainOk || profile.status === 'BANNED' || profile.status === 'SUSPENDED') {
+      await supabase.auth.signOut()
+      return null
+    }
+  }
+
+  return profile
 }

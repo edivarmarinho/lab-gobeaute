@@ -7,8 +7,8 @@ async function getProdutosComFormula() {
 
   const [{ data: produtos }, { data: formulas }] = await Promise.all([
     supabase
-      .from('produtos')
-      .select('id, sku, descricao, marca, status, pmv')
+      .from('v_produtos_canonicos')
+      .select('id, sku, descricao, marca, status, pmv, aliases')
       .order('marca')
       .order('descricao'),
     supabase

@@ -5,6 +5,7 @@ import { Package, Search, Filter, ChevronDown, ChevronUp, CheckCircle2, XCircle,
 import { clsx } from 'clsx'
 import type { Profile } from '@/lib/types'
 import { MARCAS_DISPONIVEIS } from '@/lib/types'
+import { findFormulaForProduto } from '@/lib/sku/canonical'
 
 type Produto = {
   id: string
@@ -13,6 +14,7 @@ type Produto = {
   marca: string
   status: string
   pmv: number | null
+  aliases: string[] | null
 }
 
 type Formula = {
@@ -37,33 +39,8 @@ const STATUS_FORMULA: Record<string, { label: string; color: string }> = {
   'Arquivada':             { label: 'Arquivada',         color: 'bg-gray-100 text-gray-500' },
 }
 
-function normalize(s: string) {
-  return s.toLowerCase().replace(/[^a-z0-9]/g, '')
-}
-
-// Match estrito: marca + SKU em skus_relacionados (DreamBase de-para já consolidado).
-// Fallback fuzzy só se o produto não tiver match por SKU.
 function matchFormula(produto: Produto, formulas: Formula[]): Formula | null {
-  const marcaFormulas = formulas.filter(f => f.marca === produto.marca)
-  const sku = produto.sku?.trim()
-
-  if (sku) {
-    const bySku = marcaFormulas.find(f =>
-      f.skus_relacionados?.includes(sku) ||
-      f.sku_produto === sku ||
-      f.sku_gobeaute === sku
-    )
-    if (bySku) return bySku
-  }
-
-  const normProd = normalize(produto.descricao)
-  const exact = marcaFormulas.find(f => normalize(f.produto) === normProd)
-  if (exact) return exact
-  const partial = marcaFormulas.find(f => {
-    const normF = normalize(f.produto)
-    return normProd.includes(normF) || normF.includes(normProd)
-  })
-  return partial ?? null
+  return findFormulaForProduto(produto, formulas)
 }
 
 export default function ProdutosClient({
@@ -119,7 +96,10 @@ export default function ProdutosClient({
         if (marcaFiltro !== 'Todas' && produto.marca !== marcaFiltro) return false
         if (search) {
           const q = search.toLowerCase()
-          if (!produto.descricao.toLowerCase().includes(q) && !produto.sku.toLowerCase().includes(q)) return false
+          const matchesDesc = produto.descricao.toLowerCase().includes(q)
+          const matchesSku = produto.sku.toLowerCase().includes(q)
+          const matchesAlias = produto.aliases?.some(a => a.toLowerCase().includes(q))
+          if (!matchesDesc && !matchesSku && !matchesAlias) return false
         }
         if (statusFiltro === 'com') return formula && formula.status !== 'Importada BID'
         if (statusFiltro === 'sem') return !formula
@@ -314,7 +294,17 @@ export default function ProdutosClient({
                   <p className="text-sm font-medium text-gray-900 line-clamp-1">{produto.descricao}</p>
                 </td>
                 <td className="px-4 py-3 hidden md:table-cell">
-                  <span className="text-xs font-mono text-gray-400">{produto.sku}</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-mono text-gray-500">{produto.sku}</span>
+                    {produto.aliases && produto.aliases.length > 0 && (
+                      <span
+                        className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 font-mono cursor-help"
+                        title={`Aliases (códigos antigos): ${produto.aliases.join(', ')}`}
+                      >
+                        +{produto.aliases.length}
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-4 py-3">
                   {formula ? (

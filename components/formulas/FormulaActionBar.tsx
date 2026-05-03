@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from 'react'
 import { Loader2, CheckCircle2, Lock, ArrowUpRight, Link2, ExternalLink, Unlink } from 'lucide-react'
+import MondayProjectPanel from './MondayProjectPanel'
 
 type FormulaLite = {
   id: string
   codigo: string
+  produto?: string
   marca: string
   status: string
   monday_item_id?: string | null
@@ -81,18 +83,12 @@ export default function FormulaActionBar({
         )}
 
         {formula.monday_item_id ? (
-          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 text-xs rounded-lg border border-blue-200">
-            <Link2 className="w-3.5 h-3.5" />
-            Monday vinculado: {formula.monday_item_id}
-            <a href={`https://gobeaute-produto.monday.com/boards/${formula.monday_board_id ?? ''}/pulses/${formula.monday_item_id}`}
-              target="_blank" rel="noopener" className="ml-1 hover:underline inline-flex items-center gap-0.5">
-              <ExternalLink className="w-3 h-3" />
-            </a>
-            <button onClick={() => act('unlink_monday')} disabled={!!busy}
-              className="ml-2 text-blue-500 hover:text-red-600">
-              <Unlink className="w-3.5 h-3.5" />
-            </button>
-          </div>
+          <button onClick={() => act('unlink_monday')} disabled={!!busy}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white text-blue-700 text-xs rounded-lg hover:bg-red-50 hover:text-red-700 border border-blue-200 disabled:opacity-50"
+            title="Desvincular projeto Monday">
+            <Unlink className="w-3.5 h-3.5" />
+            Desvincular Monday
+          </button>
         ) : (
           <button onClick={() => setShowPicker(true)} disabled={!!busy}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 disabled:opacity-50">
@@ -104,9 +100,14 @@ export default function FormulaActionBar({
 
       {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
 
+      {formula.monday_item_id && (
+        <MondayProjectPanel itemId={formula.monday_item_id} boardId={formula.monday_board_id} />
+      )}
+
       {showPicker && (
         <MondayPicker
           marca={formula.marca}
+          formulaText={[formula.produto, formula.codigo].filter(Boolean).join(' ')}
           onClose={() => setShowPicker(false)}
           onPick={(p) => {
             setShowPicker(false)
@@ -128,10 +129,25 @@ function textForAction(action: string, f: FormulaLite): string {
   }
 }
 
+// Token overlap normalizado — barato e robusto pra nomes curtos de produtos
+function similarity(a: string, b: string): number {
+  const norm = (s: string) => s.toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^\w\s]/g, ' ')
+    .split(/\s+/).filter(t => t.length >= 2)
+  const A = new Set(norm(a))
+  const B = new Set(norm(b))
+  if (A.size === 0 || B.size === 0) return 0
+  let inter = 0
+  A.forEach(t => { if (B.has(t)) inter++ })
+  return inter / Math.max(A.size, B.size)
+}
+
 function MondayPicker({
-  marca, onClose, onPick,
+  marca, formulaText = '', onClose, onPick,
 }: {
   marca: string
+  formulaText?: string
   onClose: () => void
   onPick: (p: MondayProject) => void
 }) {
@@ -155,9 +171,13 @@ function MondayPicker({
     })()
   }, [marca])
 
-  const filtered = projetos.filter(p =>
-    !search || p.name.toLowerCase().includes(search.toLowerCase())
-  )
+  // Ranking: aplica similarity contra formulaText; com search ativo, busca textual
+  const filtered = projetos
+    .map(p => ({ p, score: search ? 0 : similarity(formulaText, p.name) }))
+    .filter(({ p }) => !search || p.name.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => b.score - a.score)
+  const topSuggestions = !search ? filtered.filter(x => x.score >= 0.34).slice(0, 3) : []
+  const suggestionIds = new Set(topSuggestions.map(x => x.p.id))
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
@@ -188,7 +208,30 @@ function MondayPicker({
           {!loading && !error && filtered.length === 0 && (
             <p className="text-center text-sm text-gray-400 py-8">Nenhum projeto em validação de fórmula encontrado.</p>
           )}
-          {!loading && !error && filtered.map(p => (
+          {!loading && !error && topSuggestions.length > 0 && (
+            <div className="mb-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-600 mb-1.5 flex items-center gap-1">
+                ✨ Sugestões por nome
+              </p>
+              {topSuggestions.map(({ p, score }) => (
+                <button key={p.id} onClick={() => onPick(p)}
+                  className="w-full text-left px-3 py-2.5 mb-1.5 rounded-lg border-2 border-amber-200 bg-amber-50 hover:border-amber-400 hover:bg-amber-100 transition">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{p.name}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {p.categoria && <span className="inline-block px-1.5 py-0.5 bg-pink-50 text-pink-700 rounded mr-1.5">{p.categoria}</span>}
+                        {p.status && <span className="inline-block px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded">{p.status}</span>}
+                      </p>
+                    </div>
+                    <span className="text-xs text-amber-700 font-medium shrink-0">{Math.round(score * 100)}% match</span>
+                  </div>
+                </button>
+              ))}
+              <p className="text-[10px] text-gray-400 uppercase tracking-wider mt-3 mb-1.5">Todos os projetos</p>
+            </div>
+          )}
+          {!loading && !error && filtered.filter(({ p }) => !suggestionIds.has(p.id)).map(({ p }) => (
             <button key={p.id} onClick={() => onPick(p)}
               className="w-full text-left px-3 py-2.5 mb-1.5 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition">
               <div className="flex items-start justify-between gap-3">

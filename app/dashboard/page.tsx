@@ -74,6 +74,14 @@ async function getLabStats() {
     .eq('tipo_projeto', 'Homologação MP')
     .neq('status', 'Concluído')
 
+  // Vínculo Monday: fórmulas reais (não BID, não arquivadas) que têm projeto Monday vinculado
+  const { count: formulasMondayLinked } = await supabase
+    .from('formulas')
+    .select('id', { count: 'exact', head: true })
+    .neq('status', 'Importada BID')
+    .neq('status', 'Arquivada')
+    .not('monday_item_id', 'is', null)
+
   return {
     mps: mps.data ?? [],
     fornecedores: fornecedores.data ?? [],
@@ -89,6 +97,7 @@ async function getLabStats() {
     produtosPorMarca: produtosPorMarca ?? [],
     formulasPrecisamAnvisa: formulasPrecisamAnvisa ?? 0,
     formulasComAnvisa: formulasComAnvisa ?? 0,
+    formulasMondayLinked: formulasMondayLinked ?? 0,
     bidDecididosCount: bidDecididos.length,
     bidAHomologarCount: bidAHomologar.length,
     savingDecidido,
@@ -171,7 +180,8 @@ export default async function DashboardPage() {
     getProfile(),
   ])
 
-  const { mps, fornecedores, projetos, mpsCount, formulasCount, produtosAtivos, formulasReais, formulasPorMarca, produtosPorMarca, formulasPrecisamAnvisa, formulasComAnvisa, bidDecididosCount, bidAHomologarCount, savingDecidido, savingPotencial, pdHomologPendentes } = stats
+  const { mps, fornecedores, projetos, mpsCount, formulasCount, produtosAtivos, formulasReais, formulasPorMarca, produtosPorMarca, formulasPrecisamAnvisa, formulasComAnvisa, formulasMondayLinked, bidDecididosCount, bidAHomologarCount, savingDecidido, savingPotencial, pdHomologPendentes } = stats
+  const coberturaMondayPct = formulasReais > 0 ? Math.round((formulasMondayLinked / formulasReais) * 100) : 0
   const coberturaAnvisaPct = formulasPrecisamAnvisa > 0 ? Math.round((formulasComAnvisa / formulasPrecisamAnvisa) * 100) : 0
   const coberturaPct = produtosAtivos > 0 ? Math.round((formulasReais / produtosAtivos) * 100) : 0
 
@@ -291,7 +301,7 @@ export default async function DashboardPage() {
           { label: 'Matérias-Primas', value: mpsCount, sub: `${homologadas} homologadas`, icon: Package, color: 'text-blue-600', bg: 'bg-blue-50', href: '/dashboard/mps' },
           { label: 'Fornecedores', value: fornecedores.length, sub: `${fornHomologados} aprovados`, icon: Users, color: 'text-emerald-600', bg: 'bg-emerald-50', href: '/dashboard/fornecedores' },
           { label: 'Projetos P&D', value: projetos.length, sub: `${projetosAtivosCount} em andamento`, icon: FolderKanban, color: 'text-purple-600', bg: 'bg-purple-50', href: '/dashboard/projetos' },
-          { label: 'Fórmulas', value: formulasCount, sub: `${formulasReais} validadas`, icon: Beaker, color: 'text-teal-600', bg: 'bg-teal-50', href: '/dashboard/formulas' },
+          { label: 'Fórmulas', value: formulasCount, sub: `${formulasReais} validadas · ${formulasMondayLinked} Monday`, icon: Beaker, color: 'text-teal-600', bg: 'bg-teal-50', href: '/dashboard/formulas' },
           { label: 'ISO 22716', value: fornComISO, sub: `de ${fornecedores.length} forn.`, icon: Shield, color: 'text-indigo-600', bg: 'bg-indigo-50', href: '/dashboard/fornecedores' },
           { label: 'Naturais', value: mpsNaturais, sub: 'MPs origem natural', icon: Leaf, color: 'text-lime-600', bg: 'bg-lime-50', href: '/dashboard/mps' },
         ].map(kpi => (

@@ -60,9 +60,11 @@ export default function Sidebar({ user, profile, modulesRead = [] }: { user: Use
     {
       group: 'Cadastros',
       items: [
-        { module: 'produtos',     label: 'Produtos',     href: '/dashboard/produtos',     icon: Package },
-        { module: 'fornecedores', label: 'Fornecedores', href: '/dashboard/fornecedores', icon: Users },
-        { module: 'documentos',   label: 'Documentos',   href: '/dashboard/documentos',   icon: FileText },
+        { module: 'produtos',     label: 'Produtos',         href: '/dashboard/produtos',     icon: Package },
+        { module: 'mps',          label: 'Matérias-Primas',  href: '/dashboard/mps',          icon: FlaskConical },
+        { module: 'formulas',     label: 'Fórmulas',         href: '/dashboard/formulas',     icon: Beaker },
+        { module: 'fornecedores', label: 'Fornecedores',     href: '/dashboard/fornecedores', icon: Users },
+        { module: 'documentos',   label: 'Documentos',       href: '/dashboard/documentos',   icon: FileText },
       ],
     },
     {

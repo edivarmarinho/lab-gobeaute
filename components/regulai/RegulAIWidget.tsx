@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { FlaskConical, X, Send, ChevronDown, ThumbsUp, ThumbsDown, RotateCcw, Sparkles } from 'lucide-react'
 import ChatMessage, { ChatMessageData, ToolStatus } from './ChatMessage'
+import { POSE_SRC, poseForState } from '@/lib/regulai/poses'
 
 const SUGGESTED_QUESTIONS = [
   { label: 'Verificar conformidade', text: 'Quais conservantes estão liberados pela ANVISA em cosméticos leave-on?' },
@@ -177,6 +178,19 @@ export default function RegulAIWidget({ pageContext }: { pageContext?: string })
 
   const hasMessages = messages.length > 0
 
+  const lastUserText = useMemo(() => [...messages].reverse().find(m => m.role === 'user')?.content, [messages])
+  const lastAssistant = useMemo(() => [...messages].reverse().find(m => m.role === 'assistant' && !m.isStreaming && m.content), [messages])
+  const hasPositiveFeedback = useMemo(() => Object.values(feedback).some(v => v === 'up'), [feedback])
+
+  const headerPose = poseForState({
+    isLoading,
+    isError: !!lastAssistant?.isError,
+    lastUserText,
+    lastAssistantText: lastAssistant?.content,
+    feedbackPositive: hasPositiveFeedback,
+  })
+  const buttonPose = isLoading ? 'support' : 'idle'
+
   return (
     <>
       {/* Botão flutuante */}
@@ -192,12 +206,13 @@ export default function RegulAIWidget({ pageContext }: { pageContext?: string })
         {isOpen ? (
           <ChevronDown size={16} />
         ) : (
-          <img src="/regulai-avatar.svg" alt="" className="w-5 h-5" />
+          <img
+            src={POSE_SRC[buttonPose]}
+            alt=""
+            className="w-6 h-6 rounded-full -ml-1 ring-2 ring-white/40"
+          />
         )}
         <span className="text-sm font-medium">RegulAI</span>
-        {isLoading && (
-          <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-        )}
       </button>
 
       {/* Painel de chat */}
@@ -208,7 +223,17 @@ export default function RegulAIWidget({ pageContext }: { pageContext?: string })
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 bg-indigo-600 text-white">
             <div className="flex items-center gap-2.5">
-              <img src="/regulai-avatar.svg" alt="" className="w-7 h-7 rounded-full ring-2 ring-white/30" />
+              <div className="relative">
+                <img
+                  key={headerPose}
+                  src={POSE_SRC[headerPose]}
+                  alt=""
+                  className="w-9 h-9 rounded-full ring-2 ring-white/30 transition-all duration-300 animate-[pose-in_300ms_ease-out]"
+                />
+                {isLoading && (
+                  <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-400 rounded-full ring-2 ring-indigo-600 animate-pulse" />
+                )}
+              </div>
               <div>
                 <p className="text-sm font-semibold leading-none">RegulAI</p>
                 <p className="text-xs text-indigo-200 leading-none mt-0.5">Copiloto ANVISA & P&D</p>
@@ -240,13 +265,12 @@ export default function RegulAIWidget({ pageContext }: { pageContext?: string })
             {!hasMessages && showSuggestions && (
               <div className="space-y-3">
                 <div className="text-center py-4">
-                  <div className="w-16 h-16 bg-indigo-50 rounded-full mx-auto mb-2 overflow-hidden flex items-center justify-center border-2 border-indigo-100">
+                  <div className="w-20 h-20 mx-auto mb-2 overflow-hidden rounded-full ring-4 ring-indigo-100">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src="/regulai-avatar.svg"
+                      src={POSE_SRC.idle}
                       alt="RegulAI"
                       className="w-full h-full object-cover"
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
                     />
                   </div>
                   <p className="text-sm font-medium text-gray-700">Olá! Sou o RegulAI.</p>

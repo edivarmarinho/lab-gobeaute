@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getProfile } from '@/lib/supabase/get-profile'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { audit, extractRequestInfo } from '@/lib/audit/logger'
 import type { UserRole } from '@/lib/types'
 
 export async function PATCH(
@@ -33,6 +34,12 @@ export async function PATCH(
   }
 
   const adminClient = createAdminClient()
+  const { data: before } = await adminClient
+    .from('profiles')
+    .select('role,marcas,ativo,email')
+    .eq('id', params.id)
+    .single()
+
   const { error } = await adminClient
     .from('profiles')
     .update(updates)
@@ -41,6 +48,19 @@ export async function PATCH(
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
+
+  const { ip, user_agent } = extractRequestInfo(request)
+  await audit({
+    module: 'usuarios',
+    entidade: 'profiles',
+    entidade_id: params.id,
+    acao: 'UPDATE',
+    actor: callerProfile,
+    before: { role: before?.role, marcas: before?.marcas, ativo: before?.ativo },
+    after:  { role: role ?? before?.role, marcas: marcas ?? before?.marcas, ativo: ativo ?? before?.ativo },
+    metadata: { target_email: before?.email },
+    ip, user_agent,
+  })
 
   return NextResponse.json({ ok: true })
 }

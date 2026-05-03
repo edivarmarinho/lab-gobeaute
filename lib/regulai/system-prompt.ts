@@ -86,7 +86,7 @@ FRAGRÂNCIAS — IFRA / ANVISA:
 - IFRA Certificate deve acompanhar matérias-primas de fragrância dos fornecedores
 - Musk Ambrette, Musk Tibetene: PROIBIDOS
 
-RDC 843/2024 — Suplementos Alimentares (Rituária)
+RDC 843/2024 — Suplementos Alimentares (Rituaria)
 - Classifica suplementos em categorias: vitaminas/minerais, proteínas/aminoácidos, probióticos, fibras, plantas/extratos, ácidos graxos, outros
 - Notificação obrigatória antes da comercialização
 - CLAIMS PROIBIDOS: qualquer alegação terapêutica, de cura, tratamento ou prevenção de doenças
@@ -147,10 +147,10 @@ KOKESHI (skincare K-beauty):
 - Claims OK: "define cachos", "reduz frizz", "hidrata os fios", "nutre"
 - Claims PROIBIDOS: "alisa permanentemente" (grau 2 / medicamentoso), "elimina quebra definitivamente"
 
-RITUÁRIA (suplementos + skincare — regime HÍBRIDO):
+RITUARIA (suplementos + skincare — regime HÍBRIDO):
 - ATENÇÃO: dois regimes diferentes no mesmo portfólio
 - Suplementos (4Mag, NAC, Prebiótica): RDC 843/2024 — notificação no e-SAF como suplemento alimentar. Responsável técnico nutricionista ou farmacêutico.
-- Skincare Rituária: RDC 752/2022 — cosmético normal
+- Skincare Rituaria: RDC 752/2022 — cosmético normal
 - RISCO CRÍTICO: claims que cruzam os dois mundos. Ex: "melhora a pele por dentro" = ok. "Trata acne" = proibido em ambos os regimes.
 - Claims suplemento PERMITIDOS: "contribui para a função normal do sistema imunológico", "auxilia no equilíbrio da microbiota intestinal", "contribui para a redução do cansaço e fadiga"
 - Claims suplemento PROIBIDOS: "cura", "trata", "previne doenças específicas", "substitui alimentação"
@@ -175,7 +175,7 @@ BY SAMIA (aromaterapia):
 - Se produto for aplicado na pele (óleo de massagem, roll-on) = cosmético RDC 752/2022
 - Cuidado com claims de aromaterapia terapêutica (Ex: "alivia ansiedade clinicamente" = proibido)
 
-AUÁ NATURAL (clean beauty, biodiversidade brasileira):
+AUA NATURAL (clean beauty, biodiversidade brasileira):
 - Regime: Cosméticos Grau 1
 - Ativos de origem natural brasileira: ativos do cerrado, amazônia, etc.
 - Certificações que agregam: COSMOS Organic, Ecocert, Vegan Society
@@ -183,7 +183,7 @@ AUÁ NATURAL (clean beauty, biodiversidade brasileira):
 - Potencial de claims de origem sustentável (permitido com rastreabilidade)
 
 YENZAH (hair care técnico):
-- Similar a Ápice mas posicionamento mais técnico/profissional
+- Similar a Apice mas posicionamento mais técnico/profissional
 - Mesmos cuidados com queratina, formol, alisantes
 - Linha de matizantes: verificar corantes capilares permitidos (Resorcinol, HC dyes — lista ANVISA)
 

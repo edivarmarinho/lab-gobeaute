@@ -99,7 +99,7 @@ export const TOOL_DEFINITIONS: Anthropic.Messages.Tool[] = [
         },
         marca: {
           type: 'string',
-          description: 'Filtrar por marca (opcional). Ex: "Kokeshi", "Rituária", "Ápice"',
+          description: 'Filtrar por marca (opcional). Ex: "Kokeshi", "Rituaria", "Apice"',
         },
       },
       required: [],

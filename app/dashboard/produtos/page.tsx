@@ -2,18 +2,21 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getProfile } from '@/lib/supabase/get-profile'
 import ProdutosClient from './ProdutosClient'
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 async function getProdutosComFormula() {
   const supabase = createAdminClient()
 
   const [{ data: produtos }, { data: formulas }] = await Promise.all([
     supabase
-      .from('produtos')
-      .select('id, sku, descricao, marca, status, pmv')
+      .from('v_produtos_canonicos')
+      .select('id, sku, descricao, marca, status, pmv, aliases')
       .order('marca')
       .order('descricao'),
     supabase
       .from('formulas')
-      .select('id, codigo, produto, marca, status, n_mps, responsavel')
+      .select('id, codigo, produto, marca, status, n_mps, responsavel, sku_produto, sku_gobeaute, skus_relacionados')
       .order('marca'),
   ])
 

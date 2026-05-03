@@ -6,14 +6,14 @@ import { useState, useEffect } from 'react'
 import {
   FlaskConical, Package, Users, FolderKanban,
   FileText, LogOut, ShieldCheck, Beaker, Map, Menu, X,
-  LayoutDashboard, KeyRound, History,
+  LayoutDashboard, KeyRound, History, ClipboardCheck,
 } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import type { Profile } from '@/lib/types'
 import { ROLE_LABEL, ROLE_BADGE_COLOR } from '@/lib/types'
 import { clsx } from 'clsx'
 
-export default function Sidebar({ user, profile }: { user: User; profile: Profile | null }) {
+export default function Sidebar({ user, profile, modulesRead = [] }: { user: User; profile: Profile | null; modulesRead?: string[] }) {
   const supabase = createClient()
   const router = useRouter()
   const pathname = usePathname()
@@ -30,21 +30,31 @@ export default function Sidebar({ user, profile }: { user: User; profile: Profil
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  const nav = [
-    { label: 'Dashboard',        href: '/dashboard',                      icon: FlaskConical },
-    { label: 'Projetos P&D',     href: '/dashboard/projetos',             icon: FolderKanban },
-    { label: 'Matérias-Primas',  href: '/dashboard/mps',                  icon: Package },
-    { label: 'Fórmulas',         href: '/dashboard/formulas',             icon: Beaker },
-    { label: 'Fornecedores',     href: '/dashboard/fornecedores',         icon: Users },
-    { label: 'Documentos',       href: '/dashboard/documentos',           icon: FileText },
-    { label: 'Produtos',         href: '/dashboard/produtos',             icon: Package },
-    { label: 'Roadmap',          href: '/dashboard/roadmap',              icon: Map },
-    ...(isAdmin ? [
-      { label: 'Usuários',       href: '/dashboard/admin/usuarios',       icon: ShieldCheck },
-      { label: 'Acessos',        href: '/dashboard/admin/acessos',        icon: KeyRound },
-      { label: 'Auditoria',      href: '/dashboard/admin/auditoria',      icon: History },
-    ] : []),
+  // Fallback resiliente: se vier vazio e usuário tem profile válido, mostra todos
+  // (admin sempre vê tudo; demais roles veem tudo se permissões ainda não foram setadas)
+  const noPermsConfigured = modulesRead.length === 0
+  const allowed = (moduleId: string) =>
+    isAdmin || noPermsConfigured || modulesRead.includes(moduleId)
+
+  const navAll = [
+    { module: 'dashboard',       label: 'Dashboard',        href: '/dashboard',                      icon: FlaskConical },
+    { module: 'homologacoes',    label: 'Homologações',     href: '/dashboard/homologacoes',         icon: ClipboardCheck },
+    { module: 'projetos',        label: 'Projetos P&D',     href: '/dashboard/projetos',             icon: FolderKanban },
+    { module: 'mps',             label: 'Matérias-Primas',  href: '/dashboard/mps',                  icon: Package },
+    { module: 'formulas',        label: 'Fórmulas',         href: '/dashboard/formulas',             icon: Beaker },
+    { module: 'fornecedores',    label: 'Fornecedores',     href: '/dashboard/fornecedores',         icon: Users },
+    { module: 'documentos',      label: 'Documentos',       href: '/dashboard/documentos',           icon: FileText },
+    { module: 'produtos',        label: 'Produtos',         href: '/dashboard/produtos',             icon: Package },
+    { module: 'roadmap',         label: 'Roadmap',          href: '/dashboard/roadmap',              icon: Map },
+    { module: 'admin_usuarios',  label: 'Usuários',         href: '/dashboard/admin/usuarios',       icon: ShieldCheck, adminOnly: true },
+    { module: 'admin_acessos',   label: 'Acessos',          href: '/dashboard/admin/acessos',        icon: KeyRound, adminOnly: true },
+    { module: 'admin_auditoria', label: 'Auditoria',        href: '/dashboard/admin/auditoria',      icon: History, adminOnly: true },
   ]
+
+  const nav = navAll.filter(n => {
+    if (n.adminOnly && !isAdmin) return false
+    return allowed(n.module)
+  })
 
   async function signOut() {
     await supabase.auth.signOut()
@@ -144,10 +154,10 @@ export default function Sidebar({ user, profile }: { user: User; profile: Profil
   return (
     <>
       {/* ── Topbar mobile ── */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-white border-b border-gray-200 flex items-center gap-3 px-4 py-3">
+      <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-white border-b border-gray-200 flex items-center gap-3 px-4 py-2.5">
         <button
           onClick={() => setOpen(true)}
-          className="p-1.5 hover:bg-gray-100 rounded-lg transition"
+          className="p-2.5 -ml-1 hover:bg-gray-100 rounded-lg transition active:bg-gray-200"
           aria-label="Abrir menu"
         >
           <Menu className="w-5 h-5 text-gray-600" />

@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import { getProfile } from '@/lib/supabase/get-profile'
 import { ProfileProvider } from '@/lib/profile-context'
+import { getUserPermissions } from '@/lib/permissions'
 import RegulAIWidget from '@/components/regulai/RegulAIWidget'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -12,10 +13,19 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   const profile = await getProfile()
 
+  // Bloqueia usuários desativados
+  if (profile && profile.ativo === false) {
+    redirect('/login?error=desativado')
+  }
+
+  const { canRead, canWrite } = await getUserPermissions(profile)
+  const modulesRead = Array.from(canRead)
+  const modulesWrite = Array.from(canWrite)
+
   return (
-    <ProfileProvider profile={profile}>
+    <ProfileProvider profile={profile} modulesRead={modulesRead} modulesWrite={modulesWrite}>
       <div className="flex h-screen overflow-hidden">
-        <Sidebar user={user} profile={profile} />
+        <Sidebar user={user} profile={profile} modulesRead={modulesRead} />
         <main className="flex-1 overflow-y-auto bg-gray-50 pt-14 md:pt-0">
           {children}
         </main>

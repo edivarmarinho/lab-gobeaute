@@ -13,15 +13,24 @@ export async function PATCH(
   }
 
   const body = await request.json()
-  const { role, marcas } = body as { role?: UserRole; marcas?: string[] }
+  const { role, marcas, ativo } = body as { role?: UserRole; marcas?: string[]; ativo?: boolean }
 
   if (role && !['admin', 'pd', 'viewer'].includes(role)) {
     return NextResponse.json({ error: 'role inválido' }, { status: 400 })
   }
 
+  if (ativo === false && params.id === callerProfile.id) {
+    return NextResponse.json({ error: 'Você não pode desativar a si mesmo' }, { status: 400 })
+  }
+
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
   if (role !== undefined) updates.role = role
   if (marcas !== undefined) updates.marcas = marcas
+  if (ativo !== undefined) {
+    updates.ativo = ativo
+    updates.desativado_em = ativo ? null : new Date().toISOString()
+    updates.desativado_por = ativo ? null : callerProfile.id
+  }
 
   const adminClient = createAdminClient()
   const { error } = await adminClient

@@ -7,7 +7,7 @@ export default async function FormulasPage() {
   const profile = await getProfile()
   const canEdit = profile?.role === 'admin' || profile?.role === 'pd'
 
-  const [{ data: formulas }, { data: fornecedores }] = await Promise.all([
+  const [{ data: formulas }, { data: fornecedores }, { data: mps }] = await Promise.all([
     supabase
       .from('formulas')
       .select('*, formula_ingredientes(*), formula_versoes(*)')
@@ -17,12 +17,17 @@ export default async function FormulasPage() {
       .from('fornecedores')
       .select('id, nome')
       .order('nome', { ascending: true }),
+    supabase
+      .from('mps')
+      .select('id, codigo, nome, inci, categoria, homolog')
+      .order('codigo', { ascending: true }),
   ])
 
   return (
     <FormulasClient
       formulas={formulas ?? []}
       fornecedores={fornecedores ?? []}
+      mps={mps ?? []}
       canEdit={canEdit}
     />
   )

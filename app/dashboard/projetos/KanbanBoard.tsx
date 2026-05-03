@@ -27,13 +27,14 @@ const ETAPA_CONFIG: Record<Etapa, { color: string; dot: string; header: string }
 
 const MARCA_COLOR: Record<string, string> = {
   'Kokeshi':    'bg-pink-100 text-pink-700',
-  'Ápice':      'bg-emerald-100 text-emerald-700',
+  'Apice':      'bg-emerald-100 text-emerald-700',
   'Barbours':   'bg-orange-100 text-orange-700',
   'Yenzah':     'bg-sky-100 text-sky-700',
   'By Samia':   'bg-teal-100 text-teal-700',
-  'Rituária':   'bg-purple-100 text-purple-700',
+  'Rituaria':   'bg-purple-100 text-purple-700',
   'Lescent':    'bg-rose-100 text-rose-700',
-  'Auá Natural':'bg-lime-100 text-lime-700',
+  'Aua Natural':'bg-lime-100 text-lime-700',
+  'Homologação':'bg-rose-100 text-rose-700',
 }
 
 const STATUS_COLOR: Record<string, string> = {

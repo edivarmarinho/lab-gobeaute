@@ -23,7 +23,7 @@ async function getLabStats() {
     supabase.from('pd_projetos').select('id, etapa, status, marca'),
     supabase.from('documentos').select('id, tipo, validade'),
     supabase.from('fornecedor_crm').select('id, tipo, data_evento').order('data_evento', { ascending: false }).limit(8),
-    supabase.from('formulas').select('id, nome, status, marca', { count: 'exact' }),
+    supabase.from('formulas').select('id, produto, status, marca', { count: 'exact' }),
     supabase.from('produtos').select('id', { count: 'exact', head: true }).eq('status', 'Ativo').eq('tem_formula', true),
   ])
 

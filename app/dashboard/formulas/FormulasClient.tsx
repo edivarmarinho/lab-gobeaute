@@ -8,6 +8,7 @@ import {
 import { exportToCsv } from '@/lib/export-csv'
 import { clsx } from 'clsx'
 import { MARCAS_DISPONIVEIS } from '@/lib/types'
+import FormulaActionBar from '@/components/formulas/FormulaActionBar'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -49,6 +50,10 @@ type Formula = {
   vendas_mes?: number | null
   formula_ingredientes?: Ingrediente[]
   formula_versoes?: Versao[]
+  monday_item_id?: string | null
+  monday_board_id?: string | null
+  aprovada_pd_em?: string | null
+  bloqueada_em?: string | null
 }
 
 type Fornecedor = { id: string; nome: string }
@@ -61,6 +66,7 @@ const STATUS_COLOR: Record<string, string> = {
   'Aprovada Internamente':   'bg-yellow-100 text-yellow-700',
   'Em Estabilidade':         'bg-orange-100 text-orange-700',
   'Aprovada QA':             'bg-green-100 text-green-700',
+  'Bloqueada':               'bg-gray-800 text-white',
   'Arquivada':               'bg-gray-100 text-gray-500',
 }
 
@@ -466,12 +472,13 @@ function FormulaModal({
 // ─── Componente Principal ─────────────────────────────────────────────────────
 
 export default function FormulasClient({
-  formulas: initialFormulas, fornecedores, mps = [], canEdit
+  formulas: initialFormulas, fornecedores, mps = [], canEdit, isAdmin = false,
 }: {
   formulas: Formula[]
   fornecedores: Fornecedor[]
   mps?: MP[]
   canEdit: boolean
+  isAdmin?: boolean
 }) {
   const [formulas, setFormulas] = useState<Formula[]>(initialFormulas)
   const [search, setSearch] = useState('')
@@ -480,8 +487,29 @@ export default function FormulasClient({
   const [filterStatus, setFilterStatus] = useState('')
   const [aba, setAba] = useState<'validadas' | 'bid'>('validadas')
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [loadingDetailId, setLoadingDetailId] = useState<string | null>(null)
   const [modalFormula, setModalFormula] = useState<Formula | null | 'new'>('new' as any)
   const [modalOpen, setModalOpen] = useState(false)
+
+  // Carrega ingredientes/versões sob demanda quando expande (listagem é leve por performance)
+  async function toggleExpand(id: string) {
+    if (expandedId === id) { setExpandedId(null); return }
+    setExpandedId(id)
+    const cur = formulas.find(f => f.id === id)
+    if (cur && cur.formula_ingredientes !== undefined) return // já carregado
+    setLoadingDetailId(id)
+    try {
+      const res = await fetch(`/api/formulas/${id}`)
+      if (res.ok) {
+        const { formula } = await res.json()
+        if (formula) {
+          setFormulas(prev => prev.map(f => f.id === id ? { ...f, ...formula } : f))
+        }
+      }
+    } finally {
+      setLoadingDetailId(null)
+    }
+  }
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
@@ -662,7 +690,7 @@ export default function FormulasClient({
               <>
                 <tr key={formula.id}
                   className="hover:bg-gray-50 transition cursor-pointer"
-                  onClick={() => setExpandedId(expandedId === formula.id ? null : formula.id)}>
+                  onClick={() => toggleExpand(formula.id)}>
                   <td className="px-4 py-3 text-gray-400">
                     {expandedId === formula.id ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                   </td>
@@ -718,6 +746,12 @@ export default function FormulasClient({
                 {expandedId === formula.id && (
                   <tr key={`${formula.id}-detail`} className="bg-teal-50/30">
                     <td colSpan={9} className="px-8 py-5">
+                      {loadingDetailId === formula.id && (
+                        <div className="flex items-center gap-2 text-xs text-gray-500 mb-3">
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          Carregando detalhes…
+                        </div>
+                      )}
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs">
                         {/* Ingredientes */}
                         <div className="md:col-span-2">
@@ -796,6 +830,13 @@ export default function FormulasClient({
                           )}
                         </div>
                       </div>
+
+                      <FormulaActionBar
+                        formula={formula as any}
+                        canEdit={canEdit}
+                        isAdmin={isAdmin}
+                        onChange={(updated) => setFormulas(prev => prev.map(f => f.id === updated.id ? { ...f, ...updated } : f))}
+                      />
                     </td>
                   </tr>
                 )}

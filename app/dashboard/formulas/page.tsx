@@ -1,14 +1,11 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getProfile } from '@/lib/supabase/get-profile'
 import FormulasClient from './FormulasClient'
-import { requireModuleRead } from '@/lib/permissions'
-
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 export default async function FormulasPage() {
-  await requireModuleRead('formulas')
   const supabase = createAdminClient()
   const profile = await getProfile()
   const canEdit = profile?.role === 'admin' || profile?.role === 'pd'

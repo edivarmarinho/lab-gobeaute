@@ -3,14 +3,11 @@ import { getProfile } from '@/lib/supabase/get-profile'
 import { FileText } from 'lucide-react'
 import DriveSyncPanel from './DriveSyncPanel'
 import DocumentosClient from './DocumentosClient'
-import { requireModuleRead } from '@/lib/permissions'
-
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 export default async function DocumentosPage() {
-  await requireModuleRead('documentos')
   const supabase = createAdminClient()
   const profile = await getProfile()
   const canSync = profile?.role === 'admin' || profile?.role === 'pd'

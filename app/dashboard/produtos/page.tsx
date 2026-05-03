@@ -1,7 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getProfile } from '@/lib/supabase/get-profile'
 import ProdutosClient from './ProdutosClient'
-import { requireModuleRead } from '@/lib/permissions'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -25,7 +24,6 @@ async function getProdutosComFormula() {
 }
 
 export default async function ProdutosPage() {
-  await requireModuleRead('produtos')
   const [{ produtos, formulas }, profile] = await Promise.all([
     getProdutosComFormula(),
     getProfile(),

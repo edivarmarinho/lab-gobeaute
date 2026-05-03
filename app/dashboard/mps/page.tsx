@@ -1,14 +1,11 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getProfile } from '@/lib/supabase/get-profile'
 import MPsClient from './MPsClient'
-import { requireModuleRead } from '@/lib/permissions'
-
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 export default async function MPsPage() {
-  await requireModuleRead('mps')
   const supabase = createAdminClient()
   const profile = await getProfile()
   const canEdit = profile?.role === 'admin' || profile?.role === 'pd'

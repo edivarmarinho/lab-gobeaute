@@ -4,7 +4,7 @@ import { useState } from 'react'
 import type { Profile, UserRole, Module, ModulePermission } from '@/lib/types'
 import { MARCAS_DISPONIVEIS, ROLE_LABEL, ROLE_BADGE_COLOR } from '@/lib/types'
 import { clsx } from 'clsx'
-import { CheckCircle2, AlertTriangle, ChevronDown, ChevronUp, Lock, Unlock, Eye, Pencil } from 'lucide-react'
+import { CheckCircle2, AlertTriangle, ChevronDown, ChevronUp, Lock, Unlock, Eye, Pencil, Ban, ShieldOff } from 'lucide-react'
 
 type Props = {
   profiles: Profile[]
@@ -51,6 +51,43 @@ export default function UsuariosClient({ profiles, modules, permissions, current
     }
   }
 
+  async function banUser(id: string) {
+    const reason = window.prompt('Motivo do banimento (mínimo 5 caracteres). Esta ação será registrada permanentemente:')
+    if (!reason || reason.trim().length < 5) return
+    setSaving(id)
+    try {
+      const res = await fetch(`/api/admin/usuarios/${id}/ban`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: reason.trim() }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? 'Erro ao banir')
+      setLocalProfiles(prev => prev.map(p => p.id === id ? { ...p, ativo: false, status: 'BANNED' } as any : p))
+      setSuccess(prev => ({ ...prev, [id]: true }))
+    } catch (err: any) {
+      setErrors(prev => ({ ...prev, [id]: err.message ?? 'Erro ao banir' }))
+    } finally {
+      setSaving(null)
+    }
+  }
+
+  async function unbanUser(id: string) {
+    if (!confirm('Reativar este usuário? Ele poderá logar novamente.')) return
+    setSaving(id)
+    try {
+      const res = await fetch(`/api/admin/usuarios/${id}/ban`, { method: 'DELETE' })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? 'Erro ao reativar')
+      setLocalProfiles(prev => prev.map(p => p.id === id ? { ...p, ativo: true, status: 'ACTIVE' } as any : p))
+      setSuccess(prev => ({ ...prev, [id]: true }))
+    } catch (err: any) {
+      setErrors(prev => ({ ...prev, [id]: err.message ?? 'Erro ao reativar' }))
+    } finally {
+      setSaving(null)
+    }
+  }
+
   async function savePermissions(id: string, perms: PermMap) {
     setSaving(id)
     try {
@@ -92,6 +129,8 @@ export default function UsuariosClient({ profiles, modules, permissions, current
             setPermsByUser(prev => ({ ...prev, [p.id]: newPerms }))
           }}
           onSavePerms={() => savePermissions(p.id, permsByUser[p.id] ?? {})}
+          onBan={() => banUser(p.id)}
+          onUnban={() => unbanUser(p.id)}
         />
       ))}
     </div>
@@ -100,9 +139,9 @@ export default function UsuariosClient({ profiles, modules, permissions, current
 
 function UsuarioCard({
   profile, modules, perms, isSelf, saving, error, saved,
-  onPatchUser, onUpdatePerms, onSavePerms,
+  onPatchUser, onUpdatePerms, onSavePerms, onBan, onUnban,
 }: {
-  profile: Profile
+  profile: Profile & { status?: string; banned_reason?: string | null; banned_at?: string | null }
   modules: Module[]
   perms: PermMap
   isSelf: boolean
@@ -112,6 +151,8 @@ function UsuarioCard({
   onPatchUser: (u: { role?: UserRole; marcas?: string[]; ativo?: boolean }) => void
   onUpdatePerms: (p: PermMap) => void
   onSavePerms: () => void
+  onBan: () => void
+  onUnban: () => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const [marcas, setMarcas] = useState(profile.marcas)
@@ -284,27 +325,57 @@ function UsuarioCard({
           )}
 
           {/* Bloquear/desbloquear */}
-          <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
+          <div className="pt-2 border-t border-gray-100 flex items-center justify-between gap-2">
             <div className="text-xs text-gray-500">
-              {ativo
-                ? 'Usuário ativo — pode logar normalmente.'
-                : `Usuário desativado em ${profile.desativado_em?.split('T')[0] ?? '—'}.`}
-            </div>
-            <button
-              onClick={() => onPatchUser({ ativo: !ativo })}
-              disabled={saving || isSelf}
-              title={isSelf ? 'Você não pode desativar a si mesmo' : ''}
-              className={clsx(
-                'flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium transition',
-                ativo
-                  ? 'bg-red-50 text-red-700 hover:bg-red-100 border border-red-200'
-                  : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200',
-                (saving || isSelf) && 'opacity-50 cursor-not-allowed'
+              {profile.status === 'BANNED' && (
+                <>
+                  <span className="font-semibold text-red-700">BANIDO</span>
+                  {profile.banned_reason && <span className="ml-1.5">— {profile.banned_reason}</span>}
+                </>
               )}
-            >
-              {ativo ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
-              {ativo ? 'Bloquear acesso' : 'Reativar usuário'}
-            </button>
+              {profile.status !== 'BANNED' && (ativo
+                ? 'Usuário ativo — pode logar normalmente.'
+                : `Desativado em ${profile.desativado_em?.split('T')[0] ?? '—'}`)}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => onPatchUser({ ativo: !ativo })}
+                disabled={saving || isSelf || profile.status === 'BANNED'}
+                title={isSelf ? 'Não pode desativar a si mesmo' : profile.status === 'BANNED' ? 'Usuário banido — use Reativar' : ''}
+                className={clsx(
+                  'flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium transition',
+                  ativo
+                    ? 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'
+                    : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200',
+                  (saving || isSelf || profile.status === 'BANNED') && 'opacity-50 cursor-not-allowed'
+                )}
+              >
+                {ativo ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
+                {ativo ? 'Pausar' : 'Reativar'}
+              </button>
+              {profile.status === 'BANNED' ? (
+                <button
+                  onClick={onUnban}
+                  disabled={saving}
+                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-semibold bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-700 disabled:opacity-50"
+                >
+                  <ShieldOff className="w-3 h-3" /> Remover ban
+                </button>
+              ) : (
+                <button
+                  onClick={onBan}
+                  disabled={saving || isSelf}
+                  title={isSelf ? 'Não pode banir a si mesmo' : 'Bloqueio definitivo com auditoria'}
+                  className={clsx(
+                    'flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-semibold transition',
+                    'bg-red-600 hover:bg-red-700 text-white border border-red-700',
+                    (saving || isSelf) && 'opacity-50 cursor-not-allowed'
+                  )}
+                >
+                  <Ban className="w-3 h-3" /> Banir
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}

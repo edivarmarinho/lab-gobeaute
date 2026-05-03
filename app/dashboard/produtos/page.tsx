@@ -13,7 +13,7 @@ async function getProdutosComFormula() {
       .order('descricao'),
     supabase
       .from('formulas')
-      .select('id, codigo, produto, marca, status, n_mps, responsavel')
+      .select('id, codigo, produto, marca, status, n_mps, responsavel, sku_produto, sku_gobeaute, skus_relacionados')
       .order('marca'),
   ])
 

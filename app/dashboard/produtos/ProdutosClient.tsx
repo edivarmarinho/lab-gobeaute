@@ -23,6 +23,9 @@ type Formula = {
   status: string
   n_mps: number
   responsavel: string | null
+  sku_produto: string | null
+  sku_gobeaute: string | null
+  skus_relacionados: string[] | null
 }
 
 const STATUS_FORMULA: Record<string, { label: string; color: string }> = {
@@ -34,21 +37,28 @@ const STATUS_FORMULA: Record<string, { label: string; color: string }> = {
   'Arquivada':             { label: 'Arquivada',         color: 'bg-gray-100 text-gray-500' },
 }
 
-// Normaliza string para comparação fuzzy
 function normalize(s: string) {
   return s.toLowerCase().replace(/[^a-z0-9]/g, '')
 }
 
-// Tenta associar um produto a uma fórmula pelo nome (fuzzy)
+// Match estrito: marca + SKU em skus_relacionados (DreamBase de-para já consolidado).
+// Fallback fuzzy só se o produto não tiver match por SKU.
 function matchFormula(produto: Produto, formulas: Formula[]): Formula | null {
-  const normProd = normalize(produto.descricao)
   const marcaFormulas = formulas.filter(f => f.marca === produto.marca)
+  const sku = produto.sku?.trim()
 
-  // Match exato por produto.descricao == formula.produto
+  if (sku) {
+    const bySku = marcaFormulas.find(f =>
+      f.skus_relacionados?.includes(sku) ||
+      f.sku_produto === sku ||
+      f.sku_gobeaute === sku
+    )
+    if (bySku) return bySku
+  }
+
+  const normProd = normalize(produto.descricao)
   const exact = marcaFormulas.find(f => normalize(f.produto) === normProd)
   if (exact) return exact
-
-  // Match parcial — produto contém nome da fórmula ou vice-versa
   const partial = marcaFormulas.find(f => {
     const normF = normalize(f.produto)
     return normProd.includes(normF) || normF.includes(normProd)

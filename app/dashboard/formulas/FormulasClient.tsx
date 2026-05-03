@@ -8,6 +8,7 @@ import {
 import { exportToCsv } from '@/lib/export-csv'
 import { clsx } from 'clsx'
 import { MARCAS_DISPONIVEIS } from '@/lib/types'
+import FormulaActionBar from '@/components/formulas/FormulaActionBar'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -49,6 +50,10 @@ type Formula = {
   vendas_mes?: number | null
   formula_ingredientes?: Ingrediente[]
   formula_versoes?: Versao[]
+  monday_item_id?: string | null
+  monday_board_id?: string | null
+  aprovada_pd_em?: string | null
+  bloqueada_em?: string | null
 }
 
 type Fornecedor = { id: string; nome: string }
@@ -61,6 +66,7 @@ const STATUS_COLOR: Record<string, string> = {
   'Aprovada Internamente':   'bg-yellow-100 text-yellow-700',
   'Em Estabilidade':         'bg-orange-100 text-orange-700',
   'Aprovada QA':             'bg-green-100 text-green-700',
+  'Bloqueada':               'bg-gray-800 text-white',
   'Arquivada':               'bg-gray-100 text-gray-500',
 }
 
@@ -466,12 +472,13 @@ function FormulaModal({
 // ─── Componente Principal ─────────────────────────────────────────────────────
 
 export default function FormulasClient({
-  formulas: initialFormulas, fornecedores, mps = [], canEdit
+  formulas: initialFormulas, fornecedores, mps = [], canEdit, isAdmin = false,
 }: {
   formulas: Formula[]
   fornecedores: Fornecedor[]
   mps?: MP[]
   canEdit: boolean
+  isAdmin?: boolean
 }) {
   const [formulas, setFormulas] = useState<Formula[]>(initialFormulas)
   const [search, setSearch] = useState('')
@@ -823,6 +830,13 @@ export default function FormulasClient({
                           )}
                         </div>
                       </div>
+
+                      <FormulaActionBar
+                        formula={formula as any}
+                        canEdit={canEdit}
+                        isAdmin={isAdmin}
+                        onChange={(updated) => setFormulas(prev => prev.map(f => f.id === updated.id ? { ...f, ...updated } : f))}
+                      />
                     </td>
                   </tr>
                 )}

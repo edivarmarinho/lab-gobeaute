@@ -9,6 +9,7 @@ export default async function FormulasPage() {
   const supabase = createAdminClient()
   const profile = await getProfile()
   const canEdit = profile?.role === 'admin' || profile?.role === 'pd'
+  const isAdmin = profile?.role === 'admin'
 
   // Listagem leve — sem joins de ingredientes/versões.
   // Com 300+ fórmulas × ~2.6k ingredientes, o SSR estourava 60s. Detalhes vêm
@@ -16,7 +17,7 @@ export default async function FormulasPage() {
   const [{ data: formulas }, { data: fornecedores }, { data: mps }] = await Promise.all([
     supabase
       .from('formulas')
-      .select('id, codigo, versao, produto, marca, tipo, categoria, n_mps, status, responsavel, link_produto, grau, fase, obs, vendas_mes, anvisa_processo')
+      .select('id, codigo, versao, produto, marca, tipo, categoria, n_mps, status, responsavel, link_produto, grau, fase, obs, vendas_mes, anvisa_processo, monday_item_id, monday_board_id, aprovada_pd_em, bloqueada_em')
       .order('marca', { ascending: true })
       .order('codigo', { ascending: true })
       .limit(2000),
@@ -37,6 +38,7 @@ export default async function FormulasPage() {
       fornecedores={fornecedores ?? []}
       mps={mps ?? []}
       canEdit={canEdit}
+      isAdmin={isAdmin}
     />
   )
 }

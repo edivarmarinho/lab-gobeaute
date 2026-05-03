@@ -1,19 +1,59 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { History, Activity, Filter, User, Clock, Search } from 'lucide-react'
+import { History, Activity, Filter, User, Clock, Search, ChevronDown, ChevronRight } from 'lucide-react'
 import { clsx } from 'clsx'
+
+function renderValue(v: unknown): string {
+  if (v === null || v === undefined) return '—'
+  if (Array.isArray(v)) return v.length === 0 ? '[]' : v.join(', ')
+  if (typeof v === 'object') return JSON.stringify(v)
+  return String(v)
+}
+
+function DiffViewer({ diff }: { diff: Record<string, { before: unknown; after: unknown }> | null }) {
+  if (!diff || Object.keys(diff).length === 0) {
+    return <span className="text-xs text-gray-400">sem mudança</span>
+  }
+  return (
+    <div className="space-y-1.5">
+      {Object.entries(diff).map(([field, { before, after }]) => (
+        <div key={field} className="flex items-start gap-2 text-xs">
+          <span className="font-mono text-gray-500 shrink-0 min-w-[80px]">{field}:</span>
+          <div className="flex-1 min-w-0 grid grid-cols-2 gap-1.5">
+            <span className="bg-red-50 text-red-700 px-1.5 py-0.5 rounded line-through truncate dark:bg-red-900/20 dark:text-red-300" title={renderValue(before)}>
+              {renderValue(before)}
+            </span>
+            <span className="bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded truncate dark:bg-emerald-900/20 dark:text-emerald-300" title={renderValue(after)}>
+              {renderValue(after)}
+            </span>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
 
 type Tab = 'audit' | 'sessions'
 
 const ACAO_CONFIG: Record<string, { label: string; color: string }> = {
-  create:        { label: 'Criação',        color: 'bg-green-50 text-green-700' },
-  update:        { label: 'Atualização',    color: 'bg-blue-50 text-blue-700' },
-  delete:        { label: 'Exclusão',       color: 'bg-red-50 text-red-700' },
-  status_change: { label: 'Mudança status', color: 'bg-amber-50 text-amber-700' },
-  approve:       { label: 'Aprovação',      color: 'bg-emerald-50 text-emerald-700' },
-  reject:        { label: 'Rejeição',       color: 'bg-rose-50 text-rose-700' },
-  view:          { label: 'Visualização',   color: 'bg-gray-50 text-gray-600' },
+  CREATE:            { label: 'Criação',           color: 'bg-green-50 text-green-700' },
+  UPDATE:            { label: 'Atualização',       color: 'bg-blue-50 text-blue-700' },
+  DELETE:            { label: 'Exclusão',          color: 'bg-red-50 text-red-700' },
+  BAN:               { label: 'Banimento',         color: 'bg-red-100 text-red-800 font-semibold' },
+  UNBAN:             { label: 'Reativação',        color: 'bg-emerald-100 text-emerald-800' },
+  PERMISSION_CHANGE: { label: 'Permissões',        color: 'bg-purple-50 text-purple-700' },
+  LOGIN:             { label: 'Login',             color: 'bg-gray-50 text-gray-600' },
+  EXPORT:            { label: 'Exportação',        color: 'bg-amber-50 text-amber-700' },
+  IMPORT:            { label: 'Importação',        color: 'bg-sky-50 text-sky-700' },
+  // legacy lowercase
+  create:            { label: 'Criação',           color: 'bg-green-50 text-green-700' },
+  update:            { label: 'Atualização',       color: 'bg-blue-50 text-blue-700' },
+  delete:            { label: 'Exclusão',          color: 'bg-red-50 text-red-700' },
+  status_change:     { label: 'Mudança status',    color: 'bg-amber-50 text-amber-700' },
+  approve:           { label: 'Aprovação',         color: 'bg-emerald-50 text-emerald-700' },
+  reject:            { label: 'Rejeição',          color: 'bg-rose-50 text-rose-700' },
+  view:              { label: 'Visualização',      color: 'bg-gray-50 text-gray-600' },
 }
 
 const ENTIDADE_LABEL: Record<string, string> = {
@@ -138,44 +178,50 @@ export default function AuditoriaClient({
                     <th className="text-left px-5 py-3 font-medium text-gray-500">Usuário</th>
                     <th className="text-left px-5 py-3 font-medium text-gray-500">Ação</th>
                     <th className="text-left px-5 py-3 font-medium text-gray-500">Entidade</th>
-                    <th className="text-left px-5 py-3 font-medium text-gray-500 hidden md:table-cell">Campo</th>
-                    <th className="text-left px-5 py-3 font-medium text-gray-500 hidden lg:table-cell">Mudança</th>
+                    <th className="text-left px-5 py-3 font-medium text-gray-500 hidden md:table-cell">Alvo</th>
+                    <th className="text-left px-5 py-3 font-medium text-gray-500 hidden lg:table-cell">Mudança (antes → depois)</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {entriesFiltrados.slice(0, 200).map(e => {
                     const acao = ACAO_CONFIG[e.acao] ?? { label: e.acao, color: 'bg-gray-50 text-gray-600' }
                     const data = new Date(e.created_at)
+                    // Backwards-compat: log antigo com campo+valor → mini-diff
+                    const legacyDiff = !e.diff && e.campo
+                      ? { [e.campo]: { before: e.valor_antes ?? null, after: e.valor_depois ?? null } }
+                      : null
+                    const diffData = e.diff ?? legacyDiff
                     return (
                       <tr key={e.id} className="hover:bg-gray-50 transition">
-                        <td className="px-5 py-3">
+                        <td className="px-5 py-3 align-top">
                           <p className="text-xs text-gray-700">{data.toLocaleDateString('pt-BR')}</p>
                           <p className="text-xs text-gray-400">{data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
                         </td>
-                        <td className="px-5 py-3">
+                        <td className="px-5 py-3 align-top">
                           <p className="text-xs font-medium text-gray-900">{e.usuario_nome ?? '—'}</p>
                           <p className="text-xs text-gray-400">{e.usuario_email ?? '—'}</p>
                         </td>
-                        <td className="px-5 py-3">
+                        <td className="px-5 py-3 align-top">
                           <span className={clsx('text-xs px-2 py-0.5 rounded font-medium', acao.color)}>
                             {acao.label}
                           </span>
+                          {e.module_name && <p className="text-[10px] text-gray-400 mt-0.5">{e.module_name}</p>}
                         </td>
-                        <td className="px-5 py-3">
+                        <td className="px-5 py-3 align-top">
                           <p className="text-xs font-medium text-gray-700">{ENTIDADE_LABEL[e.entidade] ?? e.entidade}</p>
                           {e.entidade_id && <p className="text-xs text-gray-400 font-mono">{String(e.entidade_id).slice(0, 8)}</p>}
                         </td>
-                        <td className="px-5 py-3 hidden md:table-cell">
-                          <span className="text-xs text-gray-500 font-mono">{e.campo ?? '—'}</span>
-                        </td>
-                        <td className="px-5 py-3 hidden lg:table-cell">
-                          {e.valor_antes && e.valor_depois ? (
-                            <div className="text-xs space-y-0.5">
-                              <p className="text-red-600 line-through truncate max-w-xs">{String(e.valor_antes).slice(0, 40)}</p>
-                              <p className="text-green-700 truncate max-w-xs">{String(e.valor_depois).slice(0, 40)}</p>
-                            </div>
+                        <td className="px-5 py-3 align-top hidden md:table-cell">
+                          {e.metadata?.target_email ? (
+                            <span className="text-xs text-gray-500">{e.metadata.target_email}</span>
                           ) : (
-                            <span className="text-xs text-gray-400">{String(e.valor_depois ?? '—').slice(0, 40)}</span>
+                            <span className="text-xs text-gray-300">—</span>
+                          )}
+                        </td>
+                        <td className="px-5 py-3 align-top hidden lg:table-cell max-w-md">
+                          <DiffViewer diff={diffData} />
+                          {e.metadata?.reason && (
+                            <p className="text-xs text-red-700 mt-1.5 italic">Motivo: {e.metadata.reason}</p>
                           )}
                         </td>
                       </tr>

@@ -1,4 +1,9 @@
 import { CheckCircle2, Circle, FlaskConical, Zap, Rocket, Star } from 'lucide-react'
+import { requireModuleRead } from '@/lib/permissions'
+
+
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 const FASES = [
   {

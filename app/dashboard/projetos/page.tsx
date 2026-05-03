@@ -2,8 +2,14 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getProfile } from '@/lib/supabase/get-profile'
 import KanbanBoard from './KanbanBoard'
 import HomologBoard, { type HomologItem } from './HomologBoard'
+import { requireModuleRead } from '@/lib/permissions'
+
+
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 export default async function ProjetosPage() {
+  await requireModuleRead('projetos')
   const supabase = createAdminClient()
   const profile = await getProfile()
   const canEdit = profile?.role === 'admin' || profile?.role === 'pd'

@@ -5,6 +5,10 @@ import { ShieldCheck, Users, Lock, History } from 'lucide-react'
 import AcessosClient from './AcessosClient'
 import type { Profile } from '@/lib/types'
 
+
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 async function getDados() {
   const supabase = createAdminClient()
 

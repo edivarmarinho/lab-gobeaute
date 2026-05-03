@@ -3,6 +3,10 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getProfile } from '@/lib/supabase/get-profile'
 import FormulaDetalhe from './FormulaDetalhe'
 
+
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 async function getFormula(id: string) {
   const supabase = createAdminClient()
   const { data: formula } = await supabase

@@ -3,6 +3,10 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getProfile } from '@/lib/supabase/get-profile'
 import MPDetalhe from './MPDetalhe'
 
+
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 async function getMP(id: string) {
   const supabase = createAdminClient()
   const { data: mp } = await supabase.from('mps').select('*').eq('id', id).single()

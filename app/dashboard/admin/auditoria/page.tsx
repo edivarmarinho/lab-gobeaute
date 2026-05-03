@@ -4,6 +4,10 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { History } from 'lucide-react'
 import AuditoriaClient from './AuditoriaClient'
 
+
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 async function getAuditEntries() {
   const supabase = createAdminClient()
   const { data, error } = await supabase

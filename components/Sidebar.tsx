@@ -36,25 +36,58 @@ export default function Sidebar({ user, profile, modulesRead = [] }: { user: Use
   const allowed = (moduleId: string) =>
     isAdmin || noPermsConfigured || modulesRead.includes(moduleId)
 
-  const navAll = [
-    { module: 'dashboard',       label: 'Dashboard',        href: '/dashboard',                      icon: FlaskConical },
-    { module: 'homologacoes',    label: 'Homologações',     href: '/dashboard/homologacoes',         icon: ClipboardCheck },
-    { module: 'projetos',        label: 'Projetos P&D',     href: '/dashboard/projetos',             icon: FolderKanban },
-    { module: 'mps',             label: 'Matérias-Primas',  href: '/dashboard/mps',                  icon: Package },
-    { module: 'formulas',        label: 'Fórmulas',         href: '/dashboard/formulas',             icon: Beaker },
-    { module: 'fornecedores',    label: 'Fornecedores',     href: '/dashboard/fornecedores',         icon: Users },
-    { module: 'documentos',      label: 'Documentos',       href: '/dashboard/documentos',           icon: FileText },
-    { module: 'produtos',        label: 'Produtos',         href: '/dashboard/produtos',             icon: Package },
-    { module: 'roadmap',         label: 'Roadmap',          href: '/dashboard/roadmap',              icon: Map },
-    { module: 'admin_usuarios',  label: 'Usuários',         href: '/dashboard/admin/usuarios',       icon: ShieldCheck, adminOnly: true },
-    { module: 'admin_acessos',   label: 'Acessos',          href: '/dashboard/admin/acessos',        icon: KeyRound, adminOnly: true },
-    { module: 'admin_auditoria', label: 'Auditoria',        href: '/dashboard/admin/auditoria',      icon: History, adminOnly: true },
+  const navGroups: Array<{
+    group: string | null
+    items: Array<{ module: string; label: string; href: string; icon: typeof FlaskConical; adminOnly?: boolean }>
+  }> = [
+    {
+      group: null,
+      items: [
+        { module: 'dashboard', label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+      ],
+    },
+    {
+      group: 'P&D',
+      items: [
+        { module: 'projetos',     label: 'Projetos',         href: '/dashboard/projetos',     icon: FolderKanban },
+        { module: 'formulas',     label: 'Fórmulas',         href: '/dashboard/formulas',     icon: Beaker },
+        { module: 'mps',          label: 'Matérias-Primas',  href: '/dashboard/mps',          icon: FlaskConical },
+        { module: 'homologacoes', label: 'Homologações',     href: '/dashboard/homologacoes', icon: ClipboardCheck },
+      ],
+    },
+    {
+      group: 'Cadastros',
+      items: [
+        { module: 'produtos',     label: 'Produtos',     href: '/dashboard/produtos',     icon: Package },
+        { module: 'fornecedores', label: 'Fornecedores', href: '/dashboard/fornecedores', icon: Users },
+        { module: 'documentos',   label: 'Documentos',   href: '/dashboard/documentos',   icon: FileText },
+      ],
+    },
+    {
+      group: 'Estratégia',
+      items: [
+        { module: 'roadmap', label: 'Roadmap', href: '/dashboard/roadmap', icon: Map },
+      ],
+    },
+    {
+      group: 'Admin',
+      items: [
+        { module: 'admin_usuarios',  label: 'Usuários',  href: '/dashboard/admin/usuarios',  icon: ShieldCheck, adminOnly: true },
+        { module: 'admin_acessos',   label: 'Acessos',   href: '/dashboard/admin/acessos',   icon: KeyRound,    adminOnly: true },
+        { module: 'admin_auditoria', label: 'Auditoria', href: '/dashboard/admin/auditoria', icon: History,     adminOnly: true },
+      ],
+    },
   ]
 
-  const nav = navAll.filter(n => {
-    if (n.adminOnly && !isAdmin) return false
-    return allowed(n.module)
-  })
+  const visibleGroups = navGroups
+    .map(g => ({
+      ...g,
+      items: g.items.filter(n => {
+        if (n.adminOnly && !isAdmin) return false
+        return allowed(n.module)
+      }),
+    }))
+    .filter(g => g.items.length > 0)
 
   async function signOut() {
     await supabase.auth.signOut()
@@ -84,26 +117,37 @@ export default function Sidebar({ user, profile, modulesRead = [] }: { user: Use
         </button>
       </div>
 
-      {/* Nav */}
-      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-        {nav.map(({ label, href, icon: Icon }) => {
-          const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href))
-          return (
-            <a
-              key={href}
-              href={href}
-              className={clsx(
-                'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition',
-                active
-                  ? 'bg-brand-50 text-brand-600'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-              )}
-            >
-              <Icon className="w-4 h-4 shrink-0" />
-              {label}
-            </a>
-          )
-        })}
+      {/* Nav agrupado */}
+      <nav className="flex-1 px-3 py-4 overflow-y-auto">
+        {visibleGroups.map((g, gi) => (
+          <div key={g.group ?? `g-${gi}`} className={clsx(gi > 0 && 'mt-5')}>
+            {g.group && (
+              <p className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                {g.group}
+              </p>
+            )}
+            <div className="space-y-1">
+              {g.items.map(({ label, href, icon: Icon }) => {
+                const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href))
+                return (
+                  <a
+                    key={href}
+                    href={href}
+                    className={clsx(
+                      'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition',
+                      active
+                        ? 'bg-brand-50 text-brand-600'
+                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    )}
+                  >
+                    <Icon className="w-4 h-4 shrink-0" />
+                    {label}
+                  </a>
+                )
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
 
       {/* User + role */}

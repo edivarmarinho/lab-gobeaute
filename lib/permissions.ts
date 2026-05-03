@@ -72,3 +72,26 @@ export function canRead(set: Set<string>, moduleId: string): boolean {
 export function canWrite(set: Set<string>, moduleId: string): boolean {
   return set.has(moduleId)
 }
+
+/**
+ * Guard de página/rota: redireciona para /dashboard se não tiver leitura no módulo.
+ * Usar no topo de async server components: `await requireModuleRead('formulas')`.
+ */
+import { redirect } from 'next/navigation'
+import { getProfile } from '@/lib/supabase/get-profile'
+
+export async function requireModuleRead(moduleId: string) {
+  const profile = await getProfile()
+  if (!profile) redirect('/login')
+  const { canRead } = await getUserPermissions(profile)
+  if (!canRead.has(moduleId)) redirect('/dashboard')
+  return profile
+}
+
+export async function requireModuleWrite(moduleId: string) {
+  const profile = await getProfile()
+  if (!profile) redirect('/login')
+  const { canWrite } = await getUserPermissions(profile)
+  if (!canWrite.has(moduleId)) redirect('/dashboard')
+  return profile
+}

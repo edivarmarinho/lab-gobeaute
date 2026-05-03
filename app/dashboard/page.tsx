@@ -10,6 +10,9 @@ import {
 import FeedNoticias from '@/components/lab/FeedNoticias'
 import PainelPendencias from '@/components/lab/PainelPendencias'
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 // ─── Dados ────────────────────────────────────────────────────────────────────
 
 async function getLabStats() {

@@ -74,9 +74,9 @@ export default function Sidebar({ user, profile, modulesRead = [] }: { user: Use
     {
       group: 'Admin',
       items: [
-        { module: 'admin_usuarios',  label: 'Usuários',  href: '/dashboard/admin/usuarios',  icon: ShieldCheck, adminOnly: true },
-        { module: 'admin_acessos',   label: 'Acessos',   href: '/dashboard/admin/acessos',   icon: KeyRound,    adminOnly: true },
-        { module: 'admin_auditoria', label: 'Auditoria', href: '/dashboard/admin/auditoria', icon: History,     adminOnly: true },
+        { module: 'admin_usuarios',  label: 'Usuários',  href: '/admin/usuarios',  icon: ShieldCheck, adminOnly: true },
+        { module: 'admin_acessos',   label: 'Acessos',   href: '/admin/acessos',   icon: KeyRound,    adminOnly: true },
+        { module: 'admin_auditoria', label: 'Auditoria', href: '/admin/auditoria', icon: History,     adminOnly: true },
       ],
     },
   ]

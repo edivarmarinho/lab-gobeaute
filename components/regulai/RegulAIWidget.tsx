@@ -243,7 +243,7 @@ export default function RegulAIWidget({ pageContext }: { pageContext?: string })
                   <div className="w-16 h-16 bg-indigo-50 rounded-full mx-auto mb-2 overflow-hidden flex items-center justify-center border-2 border-indigo-100">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src="/regulai-avatar.png"
+                      src="/regulai-avatar.svg"
                       alt="RegulAI"
                       className="w-full h-full object-cover"
                       onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}

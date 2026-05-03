@@ -1,9 +1,46 @@
-import { CheckCircle2, Circle, FlaskConical, Zap, Rocket, Star } from 'lucide-react'
+import { CheckCircle2, Circle, FlaskConical, Zap, Rocket, Star, GitCommit, ExternalLink } from 'lucide-react'
 import { requireModuleRead } from '@/lib/permissions'
-
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
+
+const REPO = 'edivarmarinho/lab-gobeaute'
+
+type Commit = {
+  sha: string
+  shortSha: string
+  message: string
+  date: string
+  url: string
+  author: string
+}
+
+async function getCommits(): Promise<Commit[]> {
+  try {
+    const r = await fetch(`https://api.github.com/repos/${REPO}/commits?per_page=20`, {
+      next: { revalidate: 300 },
+      headers: process.env.GITHUB_TOKEN ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {},
+    })
+    if (!r.ok) return []
+    const data = await r.json() as Array<{
+      sha: string
+      html_url: string
+      commit: { message: string; author: { name: string; date: string } }
+    }>
+    return data
+      .filter(c => !/^Merge pull request/i.test(c.commit.message))
+      .map(c => ({
+        sha: c.sha,
+        shortSha: c.sha.slice(0, 7),
+        message: c.commit.message.split('\n')[0],
+        date: c.commit.author.date,
+        url: c.html_url,
+        author: c.commit.author.name,
+      }))
+  } catch {
+    return []
+  }
+}
 
 const FASES = [
   {
@@ -55,6 +92,13 @@ const FASES = [
       { label: 'Página de detalhe de fórmula com 4 tabs: Composição, Regulatório, INCI, Histórico', done: true },
       { label: 'Aba "A Validar BID" para Patrícia revisar fórmulas importadas do BID', done: true },
       { label: 'Feed de notícias automático com agente Claude classificando relevância', done: true },
+      { label: 'Identidade canônica de SKU (sku_canonico + de-para Gobeaute) — merge automático antigos+novos', done: true },
+      { label: 'Códigos oficiais Gobeaute em todas as fórmulas (sem prefixos sintéticos BID-XXX)', done: true },
+      { label: 'View v_produto_formula_match resolve fórmula via canônico + aliases', done: true },
+      { label: 'Triggers automáticos: produto e sku_depara mantêm canônicos em sincronia', done: true },
+      { label: 'Sidebar agrupado por área (P&D · Cadastros · Estratégia · Admin)', done: true },
+      { label: 'force-dynamic em pages dashboard — refletem DB sem rebuild', done: true },
+      { label: 'Guards requireModuleRead/Write em rotas server-side', done: true },
       { label: 'Campo "% ANVISA" vs "% Desenvolvimento" por ingrediente (Fórmula Mestra RDC 48/2013)', done: false },
       { label: 'Divisão de fórmula em Fases (Fase A, Fase B, Fase C...) com modo operatório', done: false },
       { label: 'Classificação de produto: Grau 1 ou Grau 2 ANVISA (RDC 752/2022)', done: false },
@@ -110,9 +154,11 @@ const FASES = [
   },
 ]
 
-export default function RoadmapPage() {
+export default async function RoadmapPage() {
+  await requireModuleRead('roadmap')
   const totalFeitos = FASES.flatMap(f => f.itens).filter(i => i.done).length
   const totalItens = FASES.flatMap(f => f.itens).length
+  const commits = await getCommits()
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
@@ -174,6 +220,56 @@ export default function RoadmapPage() {
             </div>
           )
         })}
+      </div>
+
+      {/* Changelog automático — últimos commits */}
+      <div className="mt-10">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+              <GitCommit className="w-5 h-5 text-gray-400" />
+              Changelog
+            </h2>
+            <p className="text-xs text-gray-400">Últimos {commits.length} deploys / mudanças no repositório</p>
+          </div>
+          <a
+            href={`https://github.com/${REPO}/commits/main`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-brand-600 hover:underline flex items-center gap-1"
+          >
+            ver todos no GitHub <ExternalLink className="w-3 h-3" />
+          </a>
+        </div>
+        {commits.length === 0 ? (
+          <div className="bg-gray-50 border border-gray-100 rounded-xl px-5 py-6 text-sm text-gray-400 text-center">
+            Histórico indisponível (configurar GITHUB_TOKEN se repo for privado).
+          </div>
+        ) : (
+          <ol className="bg-white border border-gray-100 rounded-2xl shadow-sm divide-y divide-gray-50">
+            {commits.map(c => {
+              const dt = new Date(c.date)
+              const dateStr = dt.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) +
+                ' · ' + dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+              return (
+                <li key={c.sha} className="px-5 py-3 flex items-start gap-3 hover:bg-gray-50/50 transition">
+                  <code className="text-[11px] font-mono text-gray-400 shrink-0 mt-0.5">{c.shortSha}</code>
+                  <div className="flex-1 min-w-0">
+                    <a
+                      href={c.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-gray-800 hover:text-brand-600 line-clamp-1"
+                    >
+                      {c.message}
+                    </a>
+                    <p className="text-[11px] text-gray-400 mt-0.5">{c.author} · {dateStr}</p>
+                  </div>
+                </li>
+              )
+            })}
+          </ol>
+        )}
       </div>
     </div>
   )

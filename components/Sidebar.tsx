@@ -12,6 +12,7 @@ import type { User } from '@supabase/supabase-js'
 import type { Profile } from '@/lib/types'
 import { ROLE_LABEL, ROLE_BADGE_COLOR } from '@/lib/types'
 import { clsx } from 'clsx'
+import ThemeToggle from './ThemeToggle'
 
 export default function Sidebar({ user, profile, modulesRead = [] }: { user: User; profile: Profile | null; modulesRead?: string[] }) {
   const supabase = createClient()
@@ -97,23 +98,22 @@ export default function Sidebar({ user, profile, modulesRead = [] }: { user: Use
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
       {/* Logo */}
-      <div className="px-5 py-5 border-b border-gray-100 flex items-center justify-between">
+      <div className="px-5 py-5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="bg-brand-500 p-1.5 rounded-lg">
             <FlaskConical className="w-5 h-5 text-white" />
           </div>
           <div>
-            <p className="text-sm font-bold text-gray-900">Lab Gobeaute</p>
-            <p className="text-xs text-gray-400">P&D</p>
+            <p className="text-sm font-bold text-gray-900 dark:text-white">Lab Gobeaute</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500">P&D</p>
           </div>
         </div>
-        {/* Botão fechar — só aparece no drawer mobile */}
         <button
           onClick={() => setOpen(false)}
-          className="md:hidden p-1.5 hover:bg-gray-100 rounded-lg transition"
+          className="md:hidden p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition"
           aria-label="Fechar menu"
         >
-          <X className="w-4 h-4 text-gray-500" />
+          <X className="w-4 h-4 text-gray-500 dark:text-gray-400" />
         </button>
       </div>
 
@@ -122,7 +122,7 @@ export default function Sidebar({ user, profile, modulesRead = [] }: { user: Use
         {visibleGroups.map((g, gi) => (
           <div key={g.group ?? `g-${gi}`} className={clsx(gi > 0 && 'mt-5')}>
             {g.group && (
-              <p className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+              <p className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
                 {g.group}
               </p>
             )}
@@ -136,8 +136,8 @@ export default function Sidebar({ user, profile, modulesRead = [] }: { user: Use
                     className={clsx(
                       'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition',
                       active
-                        ? 'bg-brand-50 text-brand-600'
-                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                        ? 'bg-brand-50 dark:bg-brand-900/30 text-brand-600 dark:text-brand-300'
+                        : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
                     )}
                   >
                     <Icon className="w-4 h-4 shrink-0" />
@@ -151,22 +151,22 @@ export default function Sidebar({ user, profile, modulesRead = [] }: { user: Use
       </nav>
 
       {/* User + role */}
-      <div className="px-4 py-4 border-t border-gray-100">
+      <div className="px-4 py-4 border-t border-gray-100 dark:border-gray-800">
         <div className="flex items-center gap-2 mb-2">
           {user.user_metadata?.avatar_url ? (
             <img src={user.user_metadata.avatar_url} className="w-7 h-7 rounded-full shrink-0" alt="" />
           ) : (
-            <div className="w-7 h-7 rounded-full bg-brand-100 flex items-center justify-center shrink-0">
-              <span className="text-brand-600 font-bold text-xs">
+            <div className="w-7 h-7 rounded-full bg-brand-100 dark:bg-brand-900/40 flex items-center justify-center shrink-0">
+              <span className="text-brand-600 dark:text-brand-300 font-bold text-xs">
                 {(profile?.nome ?? user.email ?? '?').charAt(0).toUpperCase()}
               </span>
             </div>
           )}
           <div className="min-w-0">
-            <p className="text-xs font-medium text-gray-900 truncate">
+            <p className="text-xs font-medium text-gray-900 dark:text-white truncate">
               {profile?.nome ?? user.user_metadata?.full_name ?? user.email}
             </p>
-            <p className="text-xs text-gray-400 truncate">{user.email}</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 truncate">{user.email}</p>
           </div>
         </div>
 
@@ -176,17 +176,19 @@ export default function Sidebar({ user, profile, modulesRead = [] }: { user: Use
               {ROLE_LABEL[profile.role]}
             </span>
             {profile.marcas.length > 0 && profile.role !== 'admin' && (
-              <p className="text-xs text-gray-400 truncate pl-0.5">{profile.marcas.join(' · ')}</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 truncate pl-0.5">{profile.marcas.join(' · ')}</p>
             )}
             {profile.role === 'admin' && (
-              <p className="text-xs text-gray-400 pl-0.5">Acesso total</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 pl-0.5">Acesso total</p>
             )}
           </div>
         )}
 
+        <ThemeToggle />
+
         <button
           onClick={signOut}
-          className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+          className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-500 dark:text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 dark:hover:text-red-400 rounded-lg transition mt-1"
         >
           <LogOut className="w-4 h-4" />
           Sair
@@ -198,19 +200,19 @@ export default function Sidebar({ user, profile, modulesRead = [] }: { user: Use
   return (
     <>
       {/* ── Topbar mobile ── */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-white border-b border-gray-200 flex items-center gap-3 px-4 py-2.5">
+      <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 flex items-center gap-3 px-4 py-2.5">
         <button
           onClick={() => setOpen(true)}
           className="p-2.5 -ml-1 hover:bg-gray-100 rounded-lg transition active:bg-gray-200"
           aria-label="Abrir menu"
         >
-          <Menu className="w-5 h-5 text-gray-600" />
+          <Menu className="w-5 h-5 text-gray-600 dark:text-gray-300" />
         </button>
         <div className="flex items-center gap-2">
           <div className="bg-brand-500 p-1 rounded-md">
             <FlaskConical className="w-4 h-4 text-white" />
           </div>
-          <p className="text-sm font-bold text-gray-900">Lab Gobeaute</p>
+          <p className="text-sm font-bold text-gray-900 dark:text-white">Lab Gobeaute</p>
         </div>
       </div>
 
@@ -226,7 +228,7 @@ export default function Sidebar({ user, profile, modulesRead = [] }: { user: Use
       {/* ── Drawer mobile ── */}
       <aside
         className={clsx(
-          'fixed inset-y-0 left-0 z-50 w-72 bg-white shadow-2xl transition-transform duration-300 md:hidden',
+          'fixed inset-y-0 left-0 z-50 w-72 bg-white dark:bg-gray-900 shadow-2xl transition-transform duration-300 md:hidden',
           open ? 'translate-x-0' : '-translate-x-full'
         )}
       >
@@ -234,7 +236,7 @@ export default function Sidebar({ user, profile, modulesRead = [] }: { user: Use
       </aside>
 
       {/* ── Sidebar desktop (sempre visível) ── */}
-      <aside className="hidden md:flex w-60 bg-white border-r border-gray-200 flex-col h-full shrink-0">
+      <aside className="hidden md:flex w-60 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex-col h-full shrink-0">
         <SidebarContent />
       </aside>
     </>

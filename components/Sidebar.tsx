@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter, usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
@@ -130,9 +131,10 @@ export default function Sidebar({ user, profile, modulesRead = [] }: { user: Use
               {g.items.map(({ label, href, icon: Icon }) => {
                 const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href))
                 return (
-                  <a
+                  <Link
                     key={href}
                     href={href}
+                    prefetch={false}
                     className={clsx(
                       'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition',
                       active
@@ -142,7 +144,7 @@ export default function Sidebar({ user, profile, modulesRead = [] }: { user: Use
                   >
                     <Icon className="w-4 h-4 shrink-0" />
                     {label}
-                  </a>
+                  </Link>
                 )
               })}
             </div>

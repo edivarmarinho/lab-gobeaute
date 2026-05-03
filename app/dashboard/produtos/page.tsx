@@ -2,6 +2,9 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getProfile } from '@/lib/supabase/get-profile'
 import ProdutosClient from './ProdutosClient'
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 async function getProdutosComFormula() {
   const supabase = createAdminClient()
 

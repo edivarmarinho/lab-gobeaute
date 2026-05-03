@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import {
   Beaker, Plus, X, Search, ChevronDown, ChevronUp,
   ExternalLink, FlaskConical, History, Save, Loader2, Package, Download
@@ -52,6 +52,7 @@ type Formula = {
 }
 
 type Fornecedor = { id: string; nome: string }
+type MP = { id: string; codigo: string; nome: string; inci: string | null; categoria: string | null; homolog: string }
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
@@ -65,13 +66,13 @@ const STATUS_COLOR: Record<string, string> = {
 
 const MARCA_COLOR: Record<string, string> = {
   'Kokeshi':    'bg-pink-100 text-pink-700',
-  'Ápice':      'bg-emerald-100 text-emerald-700',
+  'Apice':      'bg-emerald-100 text-emerald-700',
   'Barbours':   'bg-orange-100 text-orange-700',
   'Yenzah':     'bg-sky-100 text-sky-700',
   'By Samia':   'bg-violet-100 text-violet-700',
-  'Rituária':   'bg-purple-100 text-purple-700',
+  'Rituaria':   'bg-purple-100 text-purple-700',
   'Lescent':    'bg-rose-100 text-rose-700',
-  'Auá Natural':'bg-lime-100 text-lime-700',
+  'Aua Natural':'bg-lime-100 text-lime-700',
 }
 
 const FASES_REG = [
@@ -84,10 +85,88 @@ const FASES_REG = [
 
 // ─── Modal de Fórmula ─────────────────────────────────────────────────────────
 
+// Autocomplete de MP — busca por código ou nome (case-insensitive, sem acentos)
+function MPAutocomplete({ mps, value, onSelect, onChangeText }: {
+  mps: MP[]
+  value: string
+  onSelect: (mp: MP) => void
+  onChangeText: (v: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [highlighted, setHighlighted] = useState(0)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const matches = useMemo(() => {
+    const q = value.trim().toLowerCase()
+    if (!q || q.length < 1) return []
+    const norm = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '')
+    const qn = norm(q)
+    return mps
+      .filter(m => norm(m.codigo).includes(qn) || norm(m.nome).includes(qn) || (m.inci && norm(m.inci).includes(qn)))
+      .slice(0, 8)
+  }, [value, mps])
+
+  return (
+    <div ref={ref} className="relative">
+      <input
+        className="input bg-white text-xs w-full"
+        value={value}
+        onChange={e => { onChangeText(e.target.value); setOpen(true); setHighlighted(0) }}
+        onFocus={() => setOpen(true)}
+        onKeyDown={e => {
+          if (!open || matches.length === 0) return
+          if (e.key === 'ArrowDown') { e.preventDefault(); setHighlighted(h => Math.min(h + 1, matches.length - 1)) }
+          if (e.key === 'ArrowUp')   { e.preventDefault(); setHighlighted(h => Math.max(h - 1, 0)) }
+          if (e.key === 'Enter')     { e.preventDefault(); onSelect(matches[highlighted]); setOpen(false) }
+          if (e.key === 'Escape')    { setOpen(false) }
+        }}
+        placeholder="MP0011 ou nome…"
+      />
+      {open && matches.length > 0 && (
+        <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-72 overflow-y-auto">
+          {matches.map((mp, i) => (
+            <button
+              key={mp.id}
+              type="button"
+              onClick={() => { onSelect(mp); setOpen(false) }}
+              onMouseEnter={() => setHighlighted(i)}
+              className={clsx(
+                'w-full text-left px-3 py-2 text-xs flex items-center justify-between gap-2 transition',
+                i === highlighted ? 'bg-teal-50' : 'hover:bg-gray-50'
+              )}
+            >
+              <div className="min-w-0 flex-1">
+                <div className="font-mono font-medium text-gray-700">{mp.codigo}</div>
+                <div className="text-gray-600 truncate">{mp.nome}</div>
+                {mp.inci && <div className="text-gray-400 text-[10px] truncate">INCI: {mp.inci}</div>}
+              </div>
+              <span className={clsx(
+                'text-[10px] px-1.5 py-0.5 rounded shrink-0',
+                mp.homolog === 'Homologada' ? 'bg-emerald-100 text-emerald-700' :
+                mp.homolog === 'Em Processo' ? 'bg-amber-100 text-amber-700' :
+                'bg-gray-100 text-gray-500'
+              )}>{mp.homolog}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function FormulaModal({
-  formula, onClose, onSaved
+  formula, mps = [], onClose, onSaved
 }: {
   formula: Formula | null
+  mps?: MP[]
   onClose: () => void
   onSaved: (f: Formula) => void
 }) {
@@ -113,6 +192,20 @@ function FormulaModal({
   const [ingredientes, setIngredientes] = useState<Ingrediente[]>(
     formula?.formula_ingredientes ?? []
   )
+
+  // Atalhos: Esc fecha, Ctrl+I adiciona ingrediente, Ctrl+S salva
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') { e.preventDefault(); onClose() }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'i') {
+        e.preventDefault()
+        setTab('ingredientes')
+        addIngrediente()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
 
   function f(k: string, v: any) { setForm(prev => ({ ...prev, [k]: v })) }
 
@@ -168,7 +261,7 @@ function FormulaModal({
           <h2 className="font-bold text-gray-900">
             {formula ? `${formula.codigo} — ${formula.produto}` : 'Nova Fórmula'}
           </h2>
-          <button onClick={onClose} className="ml-auto p-1.5 hover:bg-gray-100 rounded-lg">
+          <button onClick={onClose} aria-label="Fechar modal" className="ml-auto p-1.5 hover:bg-gray-100 rounded-lg">
             <X className="w-4 h-4 text-gray-500" />
           </button>
         </div>
@@ -252,15 +345,34 @@ function FormulaModal({
 
           {tab === 'ingredientes' && (
             <div className="space-y-3">
+              {ingredientes.length > 0 && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-xs text-blue-700 flex items-center justify-between">
+                  <span>{ingredientes.length} ingrediente{ingredientes.length === 1 ? '' : 's'}{(() => {
+                    const total = ingredientes.reduce((acc, i) => acc + (parseFloat(i.percentual ?? '') || 0), 0)
+                    return total > 0 ? ` · soma ${total.toFixed(2)}%` : ''
+                  })()}</span>
+                  <span className="text-blue-500">💡 Digite o código MP (ex: MP0011) e os campos se preenchem</span>
+                </div>
+              )}
               {ingredientes.map((ing, idx) => (
                 <div key={idx} className="border border-gray-100 rounded-xl p-4 bg-gray-50 relative">
-                  <button onClick={() => removeIng(idx)} className="absolute top-3 right-3 p-1 hover:bg-gray-200 rounded">
+                  <button onClick={() => removeIng(idx)} className="absolute top-3 right-3 p-1 hover:bg-gray-200 rounded" title="Remover">
                     <X className="w-3.5 h-3.5 text-gray-400" />
                   </button>
                   <div className="grid grid-cols-2 gap-3 mb-2">
                     <div>
                       <label className="text-xs text-gray-400 block mb-1">Código MP</label>
-                      <input className="input bg-white text-xs" value={ing.mp_codigo ?? ''} onChange={e => updateIng(idx, 'mp_codigo', e.target.value)} placeholder="MP0011" />
+                      <MPAutocomplete
+                        mps={mps}
+                        value={ing.mp_codigo ?? ''}
+                        onSelect={(mp) => {
+                          updateIng(idx, 'mp_codigo', mp.codigo)
+                          updateIng(idx, 'mp_nome', mp.nome)
+                          if (mp.inci) updateIng(idx, 'inci', mp.inci)
+                          if (mp.id) updateIng(idx, 'mp_id', mp.id as any)
+                        }}
+                        onChangeText={(v) => updateIng(idx, 'mp_codigo', v)}
+                      />
                     </div>
                     <div>
                       <label className="text-xs text-gray-400 block mb-1">Nome</label>
@@ -274,7 +386,7 @@ function FormulaModal({
                     </div>
                     <div>
                       <label className="text-xs text-gray-400 block mb-1">%</label>
-                      <input className="input bg-white text-xs" value={ing.percentual ?? ''} onChange={e => updateIng(idx, 'percentual', e.target.value)} placeholder="5.0" />
+                      <input className="input bg-white text-xs" value={ing.percentual ?? ''} onChange={e => updateIng(idx, 'percentual', e.target.value)} placeholder="5.0" inputMode="decimal" />
                     </div>
                     <div>
                       <label className="text-xs text-gray-400 block mb-1">Função</label>
@@ -285,7 +397,7 @@ function FormulaModal({
               ))}
               <button onClick={addIngrediente}
                 className="w-full flex items-center justify-center gap-2 text-sm text-teal-600 border border-dashed border-teal-300 rounded-xl py-3 hover:bg-teal-50 transition">
-                <Plus className="w-4 h-4" /> Adicionar ingrediente
+                <Plus className="w-4 h-4" /> Adicionar ingrediente <span className="text-xs text-teal-400">(Ctrl+I)</span>
               </button>
             </div>
           )}
@@ -354,10 +466,11 @@ function FormulaModal({
 // ─── Componente Principal ─────────────────────────────────────────────────────
 
 export default function FormulasClient({
-  formulas: initialFormulas, fornecedores, canEdit
+  formulas: initialFormulas, fornecedores, mps = [], canEdit
 }: {
   formulas: Formula[]
   fornecedores: Fornecedor[]
+  mps?: MP[]
   canEdit: boolean
 }) {
   const [formulas, setFormulas] = useState<Formula[]>(initialFormulas)
@@ -702,6 +815,7 @@ export default function FormulasClient({
       {modalOpen && (
         <FormulaModal
           formula={modalFormula as Formula | null}
+          mps={mps}
           onClose={() => setModalOpen(false)}
           onSaved={onSaved}
         />

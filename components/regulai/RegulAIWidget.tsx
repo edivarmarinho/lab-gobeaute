@@ -9,7 +9,7 @@ const SUGGESTED_QUESTIONS = [
   { label: 'Gerar INCI list', text: 'Como faço para gerar a INCI list de uma fórmula para notificação?' },
   { label: 'Regimes regulatórios', text: 'Qual a diferença entre Grau 1 e Grau 2 para cosméticos ANVISA?' },
   { label: 'Claims de rótulo', text: 'Quais claims posso usar em hidratante facial sem precisar de registro?' },
-  { label: 'Rituária (suplementos)', text: 'Quais alegações são permitidas para o 4Mag (magnésio) segundo a RDC 843/2024?' },
+  { label: 'Rituaria (suplementos)', text: 'Quais alegações são permitidas para o 4Mag (magnésio) segundo a RDC 843/2024?' },
   { label: 'Fragrâncias e IFRA', text: 'Quais alérgenos de fragrância preciso declarar no rótulo?' },
 ]
 

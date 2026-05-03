@@ -5,6 +5,10 @@
       "schedule": "0 6 * * *"
     },
     {
+      "path": "/api/sync/produtos",
+      "schedule": "0 5 * * *"
+    },
+    {
       "path": "/api/notificar-docs",
       "schedule": "0 8 * * 1"
     },

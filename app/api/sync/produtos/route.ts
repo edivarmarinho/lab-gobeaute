@@ -6,15 +6,25 @@ import { getSheetsClient, PRODUTOS_SHEET_ID } from '@/lib/google-sheets'
 // Aba canônica da planilha [GoBeaute] Base de Cadastros de Produtos
 const ABA_CONSOLIDADA = 'Base Consolidada '
 
+// Grafia canônica: SEM acentos (decisão Gobeaute 2026-05-02)
 const MARCA_NORM: Record<string, string> = {
-  'auá': 'Auá Natural', 'aua': 'Auá Natural', 'auá natural': 'Auá Natural',
-  'ápice': 'Ápice', 'apice': 'Ápice',
+  'auá': 'Aua Natural', 'aua': 'Aua Natural', 'auá natural': 'Aua Natural', 'aua natural': 'Aua Natural',
+  'ápice': 'Apice', 'apice': 'Apice',
   'barbours': 'Barbours',
   'by samia': 'By Samia', 'by sâmia': 'By Samia',
   'kokeshi': 'Kokeshi',
   'lescent': 'Lescent',
-  'rituária': 'Rituária', 'rituaria': 'Rituária',
+  'rituária': 'Rituaria', 'rituaria': 'Rituaria',
   'yenzah': 'Yenzah',
+}
+
+// Detecta se descrição/sku são de kit/brinde (não tem fórmula)
+function detectarTemFormula(descricao: string, sku: string): { tem: boolean; categoria: string | null } {
+  const d = descricao.toUpperCase()
+  const s = sku.toUpperCase()
+  if (d.includes('BRINDE') || d.includes('CORTESIA') || d.includes('FREE GIFT')) return { tem: false, categoria: 'brinde' }
+  if (d.includes('KIT ') || d.startsWith('KIT') || s.startsWith('KRT')) return { tem: false, categoria: 'kit' }
+  return { tem: true, categoria: null }
 }
 
 function normalizeText(v: unknown): string | null {
@@ -112,24 +122,59 @@ export async function POST(request: NextRequest) {
         .eq('sku', sku)
         .maybeSingle()
 
+      const { tem: temFormula, categoria } = detectarTemFormula(descricao ?? '', sku)
+
       if (existing) {
-        await admin.from('produtos').update({ descricao, status, pmv, sku_tiny, marca }).eq('sku', sku)
+        await admin.from('produtos').update({
+          descricao, status, pmv, sku_tiny, marca,
+          tem_formula: temFormula,
+          categoria_produto: categoria,
+        }).eq('sku', sku)
         atualizados++
       } else {
-        const { error } = await admin.from('produtos').insert({ sku, sku_tiny, marca, descricao, status, pmv })
+        const { error } = await admin.from('produtos').insert({
+          sku, sku_tiny, marca, descricao, status, pmv,
+          tem_formula: temFormula,
+          categoria_produto: categoria,
+        })
         if (error) erros.push(`${sku}: ${error.message}`)
         else inseridos++
       }
     }
 
-    return NextResponse.json({ ok: true, total, inseridos, atualizados, erros: erros.slice(0, 10) })
+    // Detecta produtos novos que precisam de fórmula (sem formula cadastrada ainda)
+    const { count: produtosSemFormula } = await admin
+      .from('produtos')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'Ativo')
+      .eq('tem_formula', true)
+      .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+
+    return NextResponse.json({
+      ok: true,
+      total,
+      inseridos,
+      atualizados,
+      novos_sem_formula_7d: produtosSemFormula ?? 0,
+      erros: erros.slice(0, 10),
+    })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
 }
 
-// GET: status da configuração + contagem atual do banco
+// GET: status (UI) ou disparo via cron (Vercel cron envia GET com header)
 export async function GET(request: NextRequest) {
+  // Cron do Vercel chama GET com user-agent específico ou header authorization
+  const isCron =
+    request.headers.get('authorization') === `Bearer ${process.env.CRON_SECRET}` ||
+    request.headers.get('user-agent')?.includes('vercel-cron')
+
+  if (isCron) {
+    // Reusa lógica POST
+    return POST(request)
+  }
+
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

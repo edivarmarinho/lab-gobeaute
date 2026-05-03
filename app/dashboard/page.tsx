@@ -21,7 +21,7 @@ async function getLabStats() {
     supabase.from('documentos').select('id, tipo, validade'),
     supabase.from('fornecedor_crm').select('id, tipo, data_evento').order('data_evento', { ascending: false }).limit(8),
     supabase.from('formulas').select('id, nome, status, marca', { count: 'exact' }),
-    supabase.from('produtos').select('id', { count: 'exact', head: true }).eq('status', 'Ativo'),
+    supabase.from('produtos').select('id', { count: 'exact', head: true }).eq('status', 'Ativo').eq('tem_formula', true),
   ])
 
   const { count: formulasReais } = await supabase
@@ -39,6 +39,7 @@ async function getLabStats() {
     .from('produtos')
     .select('marca')
     .eq('status', 'Ativo')
+    .eq('tem_formula', true)
 
   // Cobertura ANVISA: fórmulas validadas (não BID, não fechada por fábrica) com nº processo
   const { count: formulasPrecisamAnvisa } = await supabase
@@ -53,6 +54,22 @@ async function getLabStats() {
     .neq('status', 'Importada BID')
     .neq('status', 'Arquivada')
     .not('anvisa_processo', 'is', null)
+
+  // ── KPIs Sourcing 2026 (BID) ─────────────────────────────────────────────
+  const { data: bidStats } = await supabase
+    .from('bid_decisoes')
+    .select('status_bid, saving_total_usd')
+
+  const bidDecididos = (bidStats ?? []).filter(b => b.status_bid === 'DECIDIDO')
+  const bidAHomologar = (bidStats ?? []).filter(b => b.status_bid === 'A HOMOLOGAR')
+  const savingDecidido = bidDecididos.reduce((acc, b) => acc + Math.abs(Math.min(Number(b.saving_total_usd) || 0, 0)), 0)
+  const savingPotencial = bidAHomologar.reduce((acc, b) => acc + Math.abs(Math.min(Number(b.saving_total_usd) || 0, 0)), 0)
+
+  const { count: pdHomologPendentes } = await supabase
+    .from('pd_projetos')
+    .select('id', { count: 'exact', head: true })
+    .eq('tipo_projeto', 'Homologação MP')
+    .neq('status', 'Concluído')
 
   return {
     mps: mps.data ?? [],
@@ -69,6 +86,11 @@ async function getLabStats() {
     produtosPorMarca: produtosPorMarca ?? [],
     formulasPrecisamAnvisa: formulasPrecisamAnvisa ?? 0,
     formulasComAnvisa: formulasComAnvisa ?? 0,
+    bidDecididosCount: bidDecididos.length,
+    bidAHomologarCount: bidAHomologar.length,
+    savingDecidido,
+    savingPotencial,
+    pdHomologPendentes: pdHomologPendentes ?? 0,
   }
 }
 
@@ -146,7 +168,7 @@ export default async function DashboardPage() {
     getProfile(),
   ])
 
-  const { mps, fornecedores, projetos, mpsCount, formulasCount, produtosAtivos, formulasReais, formulasPorMarca, produtosPorMarca, formulasPrecisamAnvisa, formulasComAnvisa } = stats
+  const { mps, fornecedores, projetos, mpsCount, formulasCount, produtosAtivos, formulasReais, formulasPorMarca, produtosPorMarca, formulasPrecisamAnvisa, formulasComAnvisa, bidDecididosCount, bidAHomologarCount, savingDecidido, savingPotencial, pdHomologPendentes } = stats
   const coberturaAnvisaPct = formulasPrecisamAnvisa > 0 ? Math.round((formulasComAnvisa / formulasPrecisamAnvisa) * 100) : 0
   const coberturaPct = produtosAtivos > 0 ? Math.round((formulasReais / produtosAtivos) * 100) : 0
 
@@ -221,6 +243,45 @@ export default async function DashboardPage() {
       {/* ── Painel de Pendências do P&D — destaque pós-login ── */}
       <PainelPendencias />
 
+      {/* ── Sourcing 2026 (BID) → P&D ── */}
+      {(bidDecididosCount > 0 || bidAHomologarCount > 0) && (
+        <a
+          href="/dashboard/homologacoes"
+          className="block bg-gradient-to-r from-rose-50 via-pink-50 to-rose-50 rounded-xl border border-rose-200 shadow-sm p-4 md:p-5 hover:shadow-md transition group"
+        >
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 bg-rose-100 rounded-lg flex items-center justify-center shrink-0">
+                <Target className="w-4 h-4 text-rose-600" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-gray-900">Sourcing 2026 — Decisões do BID</p>
+                <p className="text-xs text-gray-500">{bidDecididosCount} fornecedores ativos · {bidAHomologarCount} pares MP×fornecedor aguardando homologação P&D</p>
+              </div>
+            </div>
+            <div className="flex gap-4 md:gap-6 flex-wrap">
+              <div className="text-right">
+                <p className="text-[10px] uppercase tracking-wide text-emerald-700/70">Saving decidido</p>
+                <p className="text-lg md:text-xl font-bold text-emerald-700">
+                  {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(savingDecidido)}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] uppercase tracking-wide text-rose-700/70">Saving potencial</p>
+                <p className="text-lg md:text-xl font-bold text-rose-700">
+                  {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(savingPotencial)}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] uppercase tracking-wide text-amber-700/70">Homologações pendentes</p>
+                <p className="text-lg md:text-xl font-bold text-amber-700">{pdHomologPendentes}</p>
+              </div>
+              <ChevronRight className="self-center w-5 h-5 text-gray-400 group-hover:text-rose-600 transition" />
+            </div>
+          </div>
+        </a>
+      )}
+
       {/* ── KPI Cards ── */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         {[
@@ -294,7 +355,7 @@ export default async function DashboardPage() {
           <div className="flex-1 flex items-center gap-4 sm:justify-end flex-wrap">
             <div className="text-right">
               <p className="text-2xl font-bold text-gray-900">{produtosAtivos.toLocaleString('pt-BR')}</p>
-              <p className="text-xs text-gray-400">SKUs ativos</p>
+              <p className="text-xs text-gray-400">SKUs com fórmula</p>
             </div>
             <div className="w-px h-10 bg-gray-100 hidden sm:block" />
             <div className="text-right">

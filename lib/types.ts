@@ -7,19 +7,38 @@ export type Profile = {
   avatar_url: string | null
   role: UserRole
   marcas: string[]
+  ativo?: boolean
+  desativado_em?: string | null
+  desativado_por?: string | null
   created_at: string
   updated_at: string
 }
 
+export type Module = {
+  id: string
+  label: string
+  descricao: string | null
+  ordem: number
+  admin_only: boolean
+  ativo: boolean
+}
+
+export type ModulePermission = {
+  user_id: string
+  module_id: string
+  can_read: boolean
+  can_write: boolean
+}
+
 export const MARCAS_DISPONIVEIS = [
   'Kokeshi',
-  'Ápice',
+  'Apice',
   'Barbours',
   'Yenzah',
   'By Samia',
-  'Rituária',
+  'Rituaria',
   'Lescent',
-  'Auá Natural',
+  'Aua Natural',
 ] as const
 
 export type MarcaDisponivel = (typeof MARCAS_DISPONIVEIS)[number]

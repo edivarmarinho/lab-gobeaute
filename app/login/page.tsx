@@ -106,7 +106,7 @@ export default function LoginPage() {
         {/* Footer branding */}
         <div className="relative z-10">
           <p className="text-xs text-gray-600">
-            Desenvolvido para GoGroup · Ápice · Barbours · Kokeshi · Rituária · Yenzah · By Samia · Lescent
+            Desenvolvido para GoGroup · Apice · Barbours · Kokeshi · Rituaria · Yenzah · By Samia · Lescent · Aua Natural
           </p>
         </div>
       </div>

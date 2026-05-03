@@ -1,11 +1,9 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import HomologacoesClient, { type ProjetoHom } from './HomologacoesClient'
-import { requireModuleRead } from '@/lib/permissions'
 
 export const dynamic = 'force-dynamic'
 
 export default async function HomologacoesPage() {
-  await requireModuleRead('homologacoes')
   const supabase = createAdminClient()
 
   // Projetos de homologação criados a partir do BID

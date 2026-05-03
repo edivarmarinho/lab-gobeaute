@@ -1,5 +1,4 @@
 import { CheckCircle2, Circle, FlaskConical, Zap, Rocket, Star, GitCommit, ExternalLink } from 'lucide-react'
-import { requireModuleRead } from '@/lib/permissions'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -155,7 +154,6 @@ const FASES = [
 ]
 
 export default async function RoadmapPage() {
-  await requireModuleRead('roadmap')
   const totalFeitos = FASES.flatMap(f => f.itens).filter(i => i.done).length
   const totalItens = FASES.flatMap(f => f.itens).length
   const commits = await getCommits()

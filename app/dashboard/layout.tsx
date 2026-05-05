@@ -1,5 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 import Sidebar from '@/components/Sidebar'
 import { getProfile } from '@/lib/supabase/get-profile'
 import { ProfileProvider } from '@/lib/profile-context'
